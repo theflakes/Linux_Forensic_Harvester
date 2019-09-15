@@ -23,4 +23,4 @@ The "data_type" field is used to report what the metadata in that log is pulled 
 The "parent_data_type" field is used to report if that log was generated due to examining another data_type. e.g. the "FileContent" data_type may trigger a "File" data_type if a file path is found in a file's contents.
 
 ## Disclaimer
-This tool comes with no warranty or support. If anyone choose to use it, you accept all responsability and liability.
+This tool comes with no warranty or support. If anyone chooses to use it, you accept all responsability and liability.
