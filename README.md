@@ -5,7 +5,7 @@ If you just want to run it, download the "lin_fh" binary.
 
 ## Why this tool
 I am writing this in Rust for two reasons:
-* I want to learn and get better programming in Rust.
+* I want to learn and get better at programming in Rust.
 * I find that programming forensics tools helps me learn and retain things better.
 
 ## Output format
