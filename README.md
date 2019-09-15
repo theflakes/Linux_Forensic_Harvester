@@ -3,6 +3,11 @@ Harvest Linux forensic data for operational triage of an event.
 
 If you just want to run it, download the "lin_fh" binary.
 
+## Building tool
+Build command: cargo build --release  
+Post build: Run "strip" on compiled binary to drastically reduce its size.
+* e.g. "strip lin_fh"
+
 ## Why this tool
 I am writing this in Rust for two reasons:
 * I want to learn and get better at programming in Rust.
