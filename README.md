@@ -6,8 +6,8 @@ I am writing this in Rust for two reasons:
 * I want to learn and get better programming in Rust.
 * I find that programming forensics tools helps me learn and retain things better.
 
-## Output Format
-Output is in Json for import into ELK or any other Json indexer.
+## Output format
+Output is in Json for import into ELK or any other Json indexer. I may add other log formats.
 
 ## Tool use
 No configuration files are currently included. Everything is compiled in to acheive easier remote use of the tool. Just copy file to host and run. Pipe / redirect the output with standard Linux tools. At some point I will probably add a network send option.
