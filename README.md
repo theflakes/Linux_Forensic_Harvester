@@ -3,6 +3,20 @@ Harvest Linux forensic data for operational triage of an event.
 
 If you just want to run it, download the "lin_fh" binary.
 
+## To do
+* Further procfs parsing
+* Expand on interesting strings to capture in "FileContent" data_type
+* Add static examination of binaries, including interesting strings
+* Add other persistence mechanisms
+* Report on local users, /etc/passwd, and group, /etc/groups, membership
+* Identification of "interesting" log entries
+* Output via network comms
+* Web shell detection
+* Shell histories
+* Setuid / setgid
+* Traps
+* ...
+
 ## Building tool
 Build command: cargo build --release  
 Post build: Run "strip" on compiled binary to drastically reduce its size.
