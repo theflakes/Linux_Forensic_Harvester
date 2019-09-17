@@ -37,13 +37,14 @@ use regex::Regex;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 14] = [
+const WATCH_PATHS: [&str; 15] = [
     "/etc/init.d",
     "/etc/modules",
     "/etc/rc.local",
     "/etc/initramfs-tools/modules",
     "/home",
     "/etc/passwd",
+    "/etc/group",
     "/lib/modules",
     "/etc/crontab",
     "/etc/cron.d",
@@ -591,6 +592,41 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
     Ok(())
 }
 
+// parse local users
+fn parse_users() {
+
+}
+
+// parse local groups
+fn parse_groups() {
+
+}
+
+// process files and specific files explicitely
+fn process_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    match path {
+        "/etc/passwd" => parse_users(),
+        "/etc/group" => parse_groups(),
+        _ => process_file(&pdt, std::path::Path::new(path), &mut already_seen)?
+    }
+    Ok(())
+}
+
+// process directories and sub dirs we are interested in
+fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    match path {
+        ref p if p.starts_with("/proc") => examine_procs(&pdt, &path, &mut already_seen)?,
+        _ => for entry in WalkDir::new(path)
+                    .max_depth(MAX_DIR_DEPTH)
+                    .into_iter()
+                    .filter_map(|e| e.ok()) {
+                process_file(&pdt, entry.path(), &mut already_seen)?;
+                thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
+            },
+    }
+    Ok(())
+}
+
 // let's start this thing
 fn main() -> std::io::Result<()> {
     let mut already_seen = vec![];  // cache directories / files already examined to avoid multiple touches and possible infinite loops
@@ -600,23 +636,11 @@ fn main() -> std::io::Result<()> {
         let pdt = "".to_string();
         let md = fs::metadata(path)?;
         if md.is_dir() {  // if this is a directory we have more to do
-            if path.starts_with("/proc/") {  // handle procfs parsing
-                match examine_procs(&pdt, &path, &mut already_seen) {
-                    Ok(f) => f,
-                    Err(e) => println!("{}", e)};
-            } else {
-                for entry in WalkDir::new(path)
-                            .max_depth(MAX_DIR_DEPTH)
-                            .into_iter()
-                            .filter_map(|e| e.ok()) {
-                    match process_file(&pdt, entry.path(), &mut already_seen) {
-                        Ok(f) => f,
-                        Err(e) => println!("{}", e),};
-                    thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
-                }
-            }
+            match process_directory(&pdt, path, &mut already_seen) {
+                Ok(f) => f,
+                Err(e) => println!("{}", e),};
         } else {
-            match process_file(&pdt, std::path::Path::new(path), &mut already_seen) {
+            match process_files(&pdt, path, &mut already_seen) {
                 Ok(f) => f,
                 Err(e) => println!("{}", e),};
         }
