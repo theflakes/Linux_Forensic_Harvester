@@ -1,5 +1,4 @@
 /*
-    
     Author: Brian Kellogg
     Description: Pull operational forensics triage from Linux hosts.
 
@@ -55,9 +54,8 @@ const WATCH_PATHS: [&str; 15] = [
     "/proc/"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 8] = [
+const WATCH_FILES: [&str; 7] = [
     "/etc/rc.local",
-    "/etc/passwd",
     "/etc/crontab",
     "/etc/cron.d/",
     "/var/spool/cron/crontabs/",
