@@ -25,6 +25,9 @@ extern crate regex;
 
 use walkdir::WalkDir;
 use std::fs::File;
+use std::io::BufReader;
+use std::io::BufRead;
+use std::io;
 use std::io::Read;
 use std::thread;
 use std::fs::{self};
@@ -320,6 +323,19 @@ impl TxLocalUser {
             home_directory,
             shell
         }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    fn report_log(&self) {
+        println!("{}", self.to_log());
     }
 }
 
@@ -674,23 +690,53 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
     Ok(())
 }
 
-// parse local users
-fn parse_users() {
+// read file's lines into a string vec for parsing
+fn file_to_vec(filename: &str) -> io::Result<Vec<String>> {
+    let file_in = fs::File::open(filename)?;
+    let file_reader = BufReader::new(file_in);
+    Ok(file_reader.lines().filter_map(io::Result::ok).collect())
+}
 
+// parse local users
+fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
+    let lines = file_to_vec(path)?;
+    for line in lines {
+        let values: Vec<&str> = line.split(":").collect();
+        let account_name = values[0].to_string();
+        let uid = values[2].to_string();
+        let gid = values[3].to_string();
+        let description = values[4].to_string();
+        let home_directory = values[5].to_string();
+        let shell = values[6].to_string();
+        TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
+                        account_name, uid, gid, description, home_directory, 
+                        shell).report_log();
+    }
+    Ok(())
 }
 
 // parse local groups
-fn parse_groups() {
-
+fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
+    let lines = file_to_vec(path)?;
+    for line in lines {
+        let values: Vec<&str> = line.split(":").collect();
+        let group_name = values[0].to_string();
+        let gid = values[2].to_string();
+        let members = values[3].to_string();
+        TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
+                        group_name, gid, members).report_log();
+    }
+    Ok(())
 }
 
 // process files and specific files explicitely
 fn process_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     match path {
-        "/etc/passwd" => parse_users(),
-        "/etc/group" => parse_groups(),
-        _ => process_file(&pdt, std::path::Path::new(path), &mut already_seen)?
-    }
+        "/etc/passwd" => parse_users(pdt, path)?,
+        "/etc/group" => parse_groups(pdt, path)?,
+        _ => {}
+    };
+    process_file(&pdt, std::path::Path::new(path), &mut already_seen)?;
     Ok(())
 }
 
