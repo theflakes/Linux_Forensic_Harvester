@@ -57,7 +57,9 @@ const WATCH_PATHS: [&str; 15] = [
     "/proc/"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 7] = [
+const WATCH_FILES: [&str; 9] = [
+    "/etc/passwd",
+    "/etc/group",
     "/etc/rc.local",
     "/etc/crontab",
     "/etc/cron.d/",
