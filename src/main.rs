@@ -283,6 +283,90 @@ impl TxProcess {
     }
 }
 
+// hold local user metadata
+#[derive(Serialize)]
+struct TxLocalUser {
+    #[serde(default = "".to_string())]
+    parent_data_type: String,
+    #[serde(default = "LocalUser")]
+    data_type: String,
+    timestamp: String,
+    account_name: String,
+    uid: String,
+    gid: String,
+    description: String,
+    home_directory: String,
+    shell: String
+}
+impl TxLocalUser {
+    fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            account_name: String, 
+            uid: String,
+            gid: String, 
+            description: String,
+            home_directory: String,
+            shell: String) -> TxLocalUser {
+        TxLocalUser {
+            parent_data_type,
+            data_type,
+            timestamp,
+            account_name,
+            uid,
+            gid,
+            description,
+            home_directory,
+            shell
+        }
+    }
+}
+
+// hold group metadata
+#[derive(Serialize)]
+struct TxLocalGroup {
+    #[serde(default = "".to_string())]
+    parent_data_type: String,
+    #[serde(default = "LocalGroup")]
+    data_type: String,
+    timestamp: String,
+    group_name: String,
+    gid: String,
+    members: String
+}
+impl TxLocalGroup {
+    fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            group_name: String, 
+            gid: String,
+            members: String) -> TxLocalGroup {
+        TxLocalGroup {
+            parent_data_type,
+            data_type,
+            timestamp,
+            group_name,
+            gid,
+            members
+        }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    fn report_log(&self) {
+        println!("{}", self.to_log());
+    }
+}
+
 // tracks path of file and the parent data_type that caused us to look at the file
 struct FileParent {
     parent_data_type: String,
