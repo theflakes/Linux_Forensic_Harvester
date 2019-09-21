@@ -854,7 +854,7 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
 
 // let's start this thing
 fn main() -> std::io::Result<()> {
-    let mut already_seen = vec![];  // cache directories / files already examined to avoid multiple touches and possible infinite loops
+    let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops
 
     for path in WATCH_PATHS.iter() {
         if !path_exists(path) { continue }
