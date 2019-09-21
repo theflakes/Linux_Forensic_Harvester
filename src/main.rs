@@ -136,8 +136,6 @@ struct TxFileContent {
     timestamp: String,
     path: String,
     line: String,
-    number: i32,
-    total: i32,
     bytes: String
 }
 impl TxFileContent {
@@ -147,8 +145,6 @@ impl TxFileContent {
             timestamp: String,
             path: String,
             line: String,
-            number: i32,
-            total: i32,
             bytes: String) -> TxFileContent {
         TxFileContent {
             parent_data_type,
@@ -156,8 +152,6 @@ impl TxFileContent {
             timestamp,
             path,
             line,
-            number,
-            total,
             bytes
         }
     }
@@ -385,6 +379,59 @@ impl TxLocalGroup {
     }
 }
 
+// hold loaded kernel modules metadata
+#[derive(Serialize)]
+struct TxLoadedModule {
+    #[serde(default = "".to_string())]
+    parent_data_type: String,
+    #[serde(default = "KernelModule")]
+    data_type: String,
+    timestamp: String,
+    name: String,
+    size: i64,                  // module size in memory
+    loaded: i8,                 // how many times the module is loaded
+    dependencies: String,       // other modules this module is dependant on
+    state: String,              // state is: Live, Loading, or Unloading
+    memory_offset: String       // location in kernel memory of module
+}
+impl TxLoadedModule {
+    fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            name: String,
+            size: i64,
+            loaded: i8,
+            dependencies: String,
+            state: String,
+            memory_offset: String) -> TxLoadedModule {
+        TxLoadedModule {
+            parent_data_type,
+            data_type,
+            timestamp,
+            name,
+            size,
+            loaded,
+            dependencies,
+            state,
+            memory_offset
+        }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    fn report_log(&self) {
+        println!("{}", self.to_log());
+    }
+}
+
 // tracks path of file and the parent data_type that caused us to look at the file
 struct FileParent {
     parent_data_type: String,
@@ -487,13 +534,11 @@ fn get_parent_dir(path: &std::path::Path) -> &std::path::Path {
 }
 
 // convert a string to a Rust file path
-fn push_file_path(path: String, suffix: &str) -> std::path::PathBuf {
-    let mut p = path.clone();
-    if !suffix.is_empty() {
-        p = path + suffix;
-    }
+fn push_file_path(path: &str, suffix: &str) -> std::path::PathBuf {
+    let mut p = path.to_owned();
+    p.push_str(suffix);
     let r = std::path::Path::new(&p);
-    return r.clone().to_owned()
+    return r.to_owned()
 }
 
 // get metadata for the file's content (md5, mime_type)
@@ -530,7 +575,7 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
         let line = &c[0];
         TxFileContent::new("".to_string(), "FileContent".to_string(), 
                         get_now()?, file.to_string(), line.into(), 
-                        0, 0, "".to_string()).report_log();
+                        "".to_string()).report_log();
     }
     Ok(())
 }
@@ -639,6 +684,24 @@ fn split_to_vec(source: &str, split_by: &str) -> Vec<String> {
     source.split(split_by).map(|s| s.to_string()).collect()
 }
 
+// convert string to i128 or return 0 if fails
+fn to_int128(num: &str) -> i128 {
+    let n = match num.parse::<i128>() {
+        Ok(i) => i,
+        _ => 0
+    };
+    return n
+}
+
+// convert string to i64 or return 0 if fails
+fn to_int64(num: &str) -> i64 {
+    let n = match num.parse::<i64>() {
+        Ok(i) => i,
+        _ => 0
+    };
+    return n
+}
+
 // convert string to i32 or return 0 if fails
 fn to_int32(num: &str) -> i32 {
     let n = match num.parse::<i32>() {
@@ -648,25 +711,52 @@ fn to_int32(num: &str) -> i32 {
     return n
 }
 
+// convert string to i8 or return 0 if fails
+fn to_int8(num: &str) -> i8 {
+    let n = match num.parse::<i8>() {
+        Ok(i) => i,
+        _ => 0
+    };
+    return n
+}
+
 // gather and report process information via procfs
 fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<()> {
     let path = resolve_link(&bin)?.to_string_lossy().into();
-    let cmd = read_file_string(&push_file_path(root_path.to_string(), "/cmdline"))?;
-    let cwd = resolve_link(&push_file_path(root_path.to_string(), "/cwd"))?;
-    let env = read_file_string(&push_file_path(root_path.to_string(), "/environ"))?;
-    let root = resolve_link(&push_file_path(root_path.to_string(), "/root"))?;
+    let cmd = read_file_string(&push_file_path(root_path, "/cmdline"))?;
+    let cwd = resolve_link(&push_file_path(root_path, "/cwd"))?;
+    let env = read_file_string(&push_file_path(root_path, "/environ"))?;
+    let root = resolve_link(&push_file_path(root_path, "/root"))?;
     let subs = split_to_vec(root_path, "/");
     let sub = match subs.iter().next_back() {
         Some(s) => s,
         None => ""
     };
     let pid = to_int32(sub);
-    let stat = split_to_vec(&read_file_string(&push_file_path(root_path.to_string(), "/stat"))?, " ");
+    let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat"))?, " ");
     let ppid = to_int32(&stat[3]);
 
     TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
                 path, cmd, pid, ppid, env, root.to_string_lossy().into(),
                 cwd.to_string_lossy().into()).report_log();
+    Ok(())
+}
+
+// parse modules in /proc/modules
+fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
+    let lines = file_to_vec(path)?;
+    for line in lines {
+        let values: Vec<&str> = line.split(" ").collect();
+        let name = values[0].to_string();
+        let size = to_int64(values[1]);
+        let loaded = to_int8(values[2]);
+        let mut dependencies = values[3].replace(",", ", ").trim().to_string();
+        if dependencies.ends_with(",") { dependencies.pop(); }
+        let state = values[4].to_string();
+        let offset = values[5].to_string();
+        TxLoadedModule::new(pdt.to_string(), "KernelModule".to_string(), get_now()?, 
+                        name, size, loaded, dependencies, state, offset).report_log();
+    }
     Ok(())
 }
 
@@ -680,13 +770,18 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
                 .max_depth(2)
                 .into_iter()
                 .filter_map(|e| e.ok()) {
-        let p = entry.path().to_string_lossy().to_string();
-        if !PID.is_match(&p) { continue }
-        let bin = push_file_path(p.clone(), "/exe");
-        match process_file(&pdt, &bin, already_seen) {
-            Ok(f) => f,
-            Err(e) => println!("{}", e)};
-        process_process(&p, bin)?;
+        let p: &str = &*(entry.path().to_string_lossy().to_string());
+        match p {
+            "/proc/modules" => parse_modules(pdt, &p)?,
+            _ => {
+                if !PID.is_match(&p) { continue };
+                let bin = push_file_path(p, "/exe");
+                match process_file(&pdt, &bin, already_seen) {
+                    Ok(f) => f,
+                    Err(e) => println!("{}", e)};
+                process_process(&p, bin)?;
+            }
+        };
         thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
     }
     Ok(())
