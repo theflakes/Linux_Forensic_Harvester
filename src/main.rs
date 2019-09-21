@@ -39,7 +39,7 @@ use regex::Regex;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 15] = [
+const WATCH_PATHS: [&str; 16] = [
     "/etc/init.d",
     "/etc/modules",
     "/etc/rc.local",
@@ -54,19 +54,22 @@ const WATCH_PATHS: [&str; 15] = [
     "/usr/lib/systemd/system",
     "/var/spool/cron/crontabs",
     "/tmp",
-    "/proc/"
+    "/proc/",
+    "/root"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 9] = [
+const WATCH_FILES: [&str; 11] = [
     "/etc/passwd",
     "/etc/group",
     "/etc/rc.local",
+    "/etc/rc.d/",
     "/etc/crontab",
     "/etc/cron.d/",
     "/var/spool/cron/crontabs/",
     "/usr/lib/systemd/system/",
     "/.bash_profile",
-    "/.bashrc"
+    "/.bashrc",
+    "/root/"
     ];
 
 // holds file metadata info
@@ -560,13 +563,31 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
         // use \x20 for matching spaces when using "x" directive that doesn't allow spaces in regex
         static ref RE: Regex = Regex::new(r#"(?mix)
             (?:^.*(?:
-                (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})         # ipv4 address
-                |(?:https?|ftp|smb|cifs)://                                                                         # URL
-                |\\\\\w+.+\\\w+                                                                                     # UNC
-                |(?:^|[\x20"':=!|])(?:/[\w.-]+)+                                                                    # file path
-                |(?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?                                           # base64
-                |[a-z0-9]{300}                                                                                      # basic encoding
-                |(?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}                                                    # shell code
+                (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})|        # ipv4 address
+                (?:                                                                                                 # IPv6 https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
+                    (?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|                                                     # 1:2:3:4:5:6:7:8
+                    (?:[0-9a-fA-F]{1,4}:){1,7}:|                                                                    # 1::                              1:2:3:4:5:6:7::
+                    (?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|                                                    # 1::8             1:2:3:4:5:6::8  1:2:3:4:5:6::8
+                    (?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|                                           # 1::7:8           1:2:3:4:5::7:8  1:2:3:4:5::8
+                    (?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|                                           # 1::6:7:8         1:2:3:4::6:7:8  1:2:3:4::8
+                    (?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|                                           # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
+                    (?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|                                           # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
+                    [0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|                                                # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
+                    :(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|                                                              # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
+                    fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|                                                # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
+                    ::(?:ffff(?::0{1,4}){0,1}:){0,1}
+                    (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+                    (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|                                                   # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255  (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+                    (?:[0-9a-fA-F]{1,4}:){1,4}:
+                    (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+                    (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])                                                    # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+                )|
+                (?:https?|ftp|smb|cifs)://|                                                                         # URL
+                \\\\\w+.+\\\w+|                                                                                     # UNC
+                (?:^|[\x20"':=!|])(?:/[\w.-]+)+|                                                                    # file path
+                (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
+                [a-z0-9]{300}|                                                                                      # basic encoding
+                (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}                                                     # shell code
             ).*$)                                                                    
         "#).expect("bad regex");
     }
@@ -601,12 +622,13 @@ fn find_paths(text: &str, already_seen: &mut Vec<String>) -> std::io::Result<()>
     for interesting strings and references to other files
 */
 fn watch_file(file_path: &std::path::Path, path: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    if !WATCH_FILES.iter().any(|f| path.contains(f)) { return Ok(()) }
-    let data = read_file_string(file_path)?;
-    if !data.is_empty() {
-        find_paths(&data, already_seen)?;
-        find_interesting(path, &data)?;
-        drop(data);
+    if WATCH_FILES.iter().any(|f| path.contains(f)) {
+        let data = read_file_string(file_path)?;
+        if !data.is_empty() {
+            find_paths(&data, already_seen)?;
+            find_interesting(path, &data)?;
+            drop(data);
+        }
     }
     Ok(())
 }
