@@ -563,7 +563,7 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
         // use \x20 for matching spaces when using "x" directive that doesn't allow spaces in regex
         static ref RE: Regex = Regex::new(r#"(?mix)
             (?:^.*(?:
-                (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})|        # ipv4 address
+                (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})|        # IPv4 address
                 (?:                                                                                                 # IPv6 https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
                     (?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|                                                     # 1:2:3:4:5:6:7:8
                     (?:[0-9a-fA-F]{1,4}:){1,7}:|                                                                    # 1::                              1:2:3:4:5:6:7::
