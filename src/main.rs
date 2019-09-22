@@ -132,7 +132,6 @@ impl TxFile {
 // holds interesting content found in files
 #[derive(Serialize)]
 struct TxFileContent {
-    #[serde(default = "".to_string())]
     parent_data_type: String,
     #[serde(default = "FileContent")]
     data_type: String,
@@ -176,7 +175,6 @@ impl TxFileContent {
 // holds symlink metdata
 #[derive(Serialize)]
 struct TxLink {
-    #[serde(default = "".to_string())]
     parent_data_type: String,
     #[serde(default = "ShellLink")]
     data_type: String,
@@ -232,7 +230,6 @@ impl TxLink {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 struct TxProcess {
-    #[serde(default = "".to_string())]
     parent_data_type: String,
     #[serde(default = "Process")]
     data_type: String,
@@ -288,7 +285,6 @@ impl TxProcess {
 // hold local user metadata
 #[derive(Serialize)]
 struct TxLocalUser {
-    #[serde(default = "".to_string())]
     parent_data_type: String,
     #[serde(default = "LocalUser")]
     data_type: String,
@@ -341,7 +337,6 @@ impl TxLocalUser {
 // hold group metadata
 #[derive(Serialize)]
 struct TxLocalGroup {
-    #[serde(default = "".to_string())]
     parent_data_type: String,
     #[serde(default = "LocalGroup")]
     data_type: String,
@@ -385,7 +380,6 @@ impl TxLocalGroup {
 // hold loaded kernel modules metadata
 #[derive(Serialize)]
 struct TxLoadedModule {
-    #[serde(default = "".to_string())]
     parent_data_type: String,
     #[serde(default = "KernelModule")]
     data_type: String,
