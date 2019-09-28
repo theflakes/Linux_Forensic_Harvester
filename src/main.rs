@@ -581,7 +581,7 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
                 (?:^|[\x20"':=!|])(?:/[\w.-]+)+|                                                                    # file path
                 (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
                 [a-z0-9]{300}|                                                                                      # basic encoding
-                (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}                                                     # shell code
+                (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}                                                     # shell code                      
             ).*$)                                                                    
         "#).expect("bad regex");
     }
