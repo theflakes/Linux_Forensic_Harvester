@@ -429,6 +429,52 @@ impl TxLoadedModule {
     }
 }
 
+// hold mount point metadata
+#[derive(Serialize)]
+struct TxMountPoint {
+    parent_data_type: String,
+    #[serde(default = "KernelModule")]
+    data_type: String,
+    timestamp: String,
+    name: String,
+    mount_point: String,
+    file_system_type: String,
+    mount_options: String
+}
+impl TxMountPoint {
+    fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            name: String,
+            mount_point: String,
+            file_system_type: String,
+            mount_options: String) -> TxMountPoint {
+        TxMountPoint {
+            parent_data_type,
+            data_type,
+            timestamp,
+            name,
+            mount_point,
+            file_system_type,
+            mount_options
+        }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    fn report_log(&self) {
+        println!("{}", self.to_log());
+    }
+}
+
 // tracks path of file and the parent data_type that caused us to look at the file
 struct FileParent {
     parent_data_type: String,
@@ -776,6 +822,21 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+// parse mount points in /proc/mounts
+fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
+    let lines = file_to_vec(path)?;
+    for line in lines {
+        let values: Vec<&str> = line.split(" ").collect();
+        let name = values[0].to_string();
+        let mount_point = values[1].to_string();
+        let file_system_type = values[2].to_string();
+        let mount_options = values[3].replace(",", ", ").trim().to_string();
+        TxMountPoint::new(pdt.to_string(), "MountPoint".to_string(), get_now()?, 
+                        name, mount_point, file_system_type, mount_options).report_log();
+    }
+    Ok(())
+}
+
 // start processing procfs to gather process metadata
 fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     lazy_static! { 
@@ -789,6 +850,7 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
         let p: &str = &*(entry.path().to_string_lossy().to_string());
         match p {
             "/proc/modules" => parse_modules(pdt, &p)?,
+            "/proc/mounts" => parse_mounts(pdt, &p)?,
             _ => {
                 if !PID.is_match(&p) { continue };
                 let bin = push_file_path(p, "/exe");
