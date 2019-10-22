@@ -4,7 +4,7 @@ Harvest Linux forensic data for operational triage of an event.
 If you just want to run it, download the "lin_fh" binary.
 
 ## To do
-* Further procfs parsing
+* ~~Further procfs parsing~~
 * Expand on interesting strings to capture in "FileContent" data_type
 * Add static examination of binaries, including interesting strings
 * Add other persistence mechanisms
@@ -12,7 +12,7 @@ If you just want to run it, download the "lin_fh" binary.
 * Identification of "interesting" log entries
 * Output via network comms
 * Web shell detection
-* Shell histories
+* ~~Shell histories~~
 * Setuid / setgid
 * Traps
 * ...
