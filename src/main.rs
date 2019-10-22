@@ -12,31 +12,23 @@
 */
 
 extern crate walkdir;           // traverse directory trees
-extern crate md5;
-extern crate serde;             // needed for json serialization
-extern crate serde_derive;      // needed for json serialization
-extern crate serde_json;        // needed for json serialization
-extern crate file;
-extern crate chrono;            // DateTime manipulation
-extern crate tree_magic;        // needed to find MIME type of files
-extern crate path_abs;          // needed to create absolute file paths from relative
 extern crate regex;
-extern crate arrayvec;
+
 #[macro_use] extern crate lazy_static;
 
+mod data_def;
+mod file_op;
+mod mutate;
+mod time;
+
 use walkdir::WalkDir;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::io;
-use std::io::Read;
 use std::thread;
 use std::fs::{self};
-use serde_derive::{Serialize};
-use chrono::offset::Utc;
-use chrono::DateTime;
-use path_abs::{PathAbs, PathInfo};
 use regex::Regex;
+use data_def::*;
+use file_op::*;
+use mutate::*;
+use time::*;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
@@ -73,596 +65,6 @@ const WATCH_FILES: [&str; 11] = [
     "/root/"
     ];
 
-// holds file metadata info
-#[derive(Serialize)]
-struct TxFile {
-    parent_data_type: String,
-    data_type: String,
-    timestamp: String,
-    path: String, 
-    md5: String, 
-    mime_type: String,
-    last_access_time: String, 
-    last_write_time: String,
-    creation_time: String,
-    size: u64,
-    hidden: bool
-}
-impl TxFile {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            md5: String, 
-            mime_type: String,
-            last_access_time: String, 
-            last_write_time: String,
-            creation_time: String,
-            size: u64,
-            hidden: bool) -> TxFile {
-        TxFile {
-            parent_data_type,
-            data_type,
-            timestamp,
-            path,
-            md5,
-            mime_type,
-            last_access_time,
-            last_write_time,
-            creation_time,
-            size,
-            hidden
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// holds interesting content found in files
-#[derive(Serialize)]
-struct TxFileContent {
-    parent_data_type: String,
-    #[serde(default = "FileContent")]
-    data_type: String,
-    timestamp: String,
-    path: String,
-    line: String,
-    bytes: String
-}
-impl TxFileContent {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            line: String,
-            bytes: String) -> TxFileContent {
-        TxFileContent {
-            parent_data_type,
-            data_type,
-            timestamp,
-            path,
-            line,
-            bytes
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// holds symlink metdata
-#[derive(Serialize)]
-struct TxLink {
-    parent_data_type: String,
-    #[serde(default = "ShellLink")]
-    data_type: String,
-    timestamp: String,
-    path: String,
-    target_path: String,
-    last_access_time: String,
-    last_write_time: String,
-    creation_time: String,
-    size: u64,
-    hidden: bool
-}
-impl TxLink {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            target_path: String,
-            last_access_time: String, 
-            last_write_time: String,
-            creation_time: String,
-            size: u64,
-            hidden: bool) -> TxLink {
-        TxLink {
-            parent_data_type,
-            data_type,
-            timestamp,
-            path,
-            target_path,
-            last_access_time,
-            last_write_time,
-            creation_time,
-            size,
-            hidden
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// hold process metadata info from procfs
-#[derive(Serialize)]
-struct TxProcess {
-    parent_data_type: String,
-    #[serde(default = "Process")]
-    data_type: String,
-    timestamp: String,
-    path: String,
-    command_line: String,
-    pid: i32,
-    ppid: i32,
-    env: String,
-    root_directory: String,
-    current_working_directory: String
-}
-impl TxProcess {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            command_line: String,
-            pid: i32, 
-            ppid: i32,
-            env: String,
-            root_directory: String,
-            current_working_directory: String) -> TxProcess {
-        TxProcess {
-            parent_data_type,
-            data_type,
-            timestamp,
-            path,
-            command_line,
-            pid,
-            ppid,
-            env,
-            root_directory,
-            current_working_directory
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// hold local user metadata
-#[derive(Serialize)]
-struct TxLocalUser {
-    parent_data_type: String,
-    #[serde(default = "LocalUser")]
-    data_type: String,
-    timestamp: String,
-    account_name: String,
-    uid: i32,
-    gid: i32,
-    description: String,
-    home_directory: String,
-    shell: String
-}
-impl TxLocalUser {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            account_name: String, 
-            uid: i32,
-            gid: i32, 
-            description: String,
-            home_directory: String,
-            shell: String) -> TxLocalUser {
-        TxLocalUser {
-            parent_data_type,
-            data_type,
-            timestamp,
-            account_name,
-            uid,
-            gid,
-            description,
-            home_directory,
-            shell
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// hold group metadata
-#[derive(Serialize)]
-struct TxLocalGroup {
-    parent_data_type: String,
-    #[serde(default = "LocalGroup")]
-    data_type: String,
-    timestamp: String,
-    group_name: String,
-    gid: String,
-    members: String
-}
-impl TxLocalGroup {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            group_name: String, 
-            gid: String,
-            members: String) -> TxLocalGroup {
-        TxLocalGroup {
-            parent_data_type,
-            data_type,
-            timestamp,
-            group_name,
-            gid,
-            members
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// hold loaded kernel modules metadata
-#[derive(Serialize)]
-struct TxLoadedModule {
-    parent_data_type: String,
-    #[serde(default = "KernelModule")]
-    data_type: String,
-    timestamp: String,
-    name: String,
-    size: i64,                  // module size in memory
-    loaded: i8,                 // how many times the module is loaded
-    dependencies: String,       // other modules this module is dependant on
-    state: String,              // state is: Live, Loading, or Unloading
-    memory_offset: String       // location in kernel memory of module
-}
-impl TxLoadedModule {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            name: String,
-            size: i64,
-            loaded: i8,
-            dependencies: String,
-            state: String,
-            memory_offset: String) -> TxLoadedModule {
-        TxLoadedModule {
-            parent_data_type,
-            data_type,
-            timestamp,
-            name,
-            size,
-            loaded,
-            dependencies,
-            state,
-            memory_offset
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// hold mount point metadata
-#[derive(Serialize)]
-struct TxMountPoint {
-    parent_data_type: String,
-    #[serde(default = "KernelModule")]
-    data_type: String,
-    timestamp: String,
-    name: String,
-    mount_point: String,
-    file_system_type: String,
-    mount_options: String
-}
-impl TxMountPoint {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            name: String,
-            mount_point: String,
-            file_system_type: String,
-            mount_options: String) -> TxMountPoint {
-        TxMountPoint {
-            parent_data_type,
-            data_type,
-            timestamp,
-            name,
-            mount_point,
-            file_system_type,
-            mount_options
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// hold network connection metadata
-#[derive(Serialize)]
-struct TxNetConn {
-    parent_data_type: String,
-    #[serde(default = "NetConn")]
-    data_type: String,
-    timestamp: String,
-    path: String,
-    pid: i32,
-    uid: i32,
-    l_ip: String,
-    l_port: u16,
-    r_ip: String,
-    r_port: u16,
-    status: String,
-    inode: i128
-}
-impl TxNetConn {
-    fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            pid: i32,
-            uid: i32,
-            l_ip: String,
-            l_port: u16,
-            r_ip: String,
-            r_port: u16,
-            status: String,
-            inode: i128) -> TxNetConn {
-        TxNetConn {
-            parent_data_type,
-            data_type,
-            timestamp,
-            path,
-            pid,
-            uid,
-            l_ip,
-            l_port,
-            r_ip,
-            r_port,
-            status,
-            inode
-        }
-    }
-
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
-    // convert struct to json and report it out
-    fn report_log(&self) {
-        println!("{}", self.to_log());
-    }
-}
-
-// tracks path of file and the parent data_type that caused us to look at the file
-struct FileParent {
-    parent_data_type: String,
-    path: std::path::PathBuf
-}
-
-// holds info on metadata for file content
-struct FileContentMetaData {
-    md5: String,
-    mime_type: String
-}
-
-// holds ip socket
-struct Socket {
-    ip: String,
-    port: u16
-}
-
-
-
-// return file mime type string
-fn get_filetype(buffer: &mut Vec<u8>) -> String {
-    tree_magic::from_u8(buffer)
-}
-
-// true if path exists, false otherwise
-fn path_exists(path: &str) -> bool {
-    fs::metadata(path).is_ok()
-}
-
-// get date into the format we need
-fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
-    Ok(time.format("%Y-%m-%d %H:%M:%S.%3f").to_string())
-}
-
-// get the current date time
-fn get_now() -> Result<String, std::io::Error>  {
-    Ok(format_date(Utc::now())?)
-}
-
-// used to initialize a date time to epoch start
-fn get_epoch_start() -> String  {
-    "1970-01-01 00:00:00.000".to_string()
-}
-
-// is a file or directory hidden
-fn is_hidden(file_path: &std::path::PathBuf) -> bool {
-    let path = match file_path.file_name() {
-            Some(o) => o,
-            None => return false
-            };
-    if file_path.is_file() {  // simple check for hidden files and directories
-        path.to_string_lossy().starts_with(".")
-    } else if file_path.is_dir() {
-        path.to_string_lossy().contains("/.")
-    } else {
-        false
-    }
-}
-
-// get handle to a file
-fn open_file(file_path: &std::path::Path) -> std::io::Result<(std::fs::File)> {
-    match File::open(&file_path) {
-        Ok(f) => return Ok(f),
-        Err(e) => return Err(e)
-    }
-}
-
-// read all file content for examination for interesting strings
-fn read_file_string(file: &std::path::Path) -> std::io::Result<(String)> {
-    match fs::read_to_string(file) {
-        Ok(f) => Ok(f.replace('\u{0000}', " ").trim().to_string()),  // Unicode nulls are replaced with spaces (look for better solution)
-        Err(_e) => Ok("".to_string())
-    }
-}
-
-// read in file as byte vector
-fn read_file_bytes(mut file: &std::fs::File) -> std::io::Result<(Vec<u8>)> {
-    let mut buffer = Vec::new();
-    match file.read_to_end(&mut buffer) {
-        Ok(f) => f,
-        Err(_e) => return Ok(vec![])
-    };
-    Ok(buffer)
-}
-
-// return the path that a symlink points to
-fn resolve_link(link_path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    let parent_dir = get_parent_dir(link_path);
-    match std::env::set_current_dir(parent_dir) {
-        Ok(f) => f,
-        Err(_e) => return Ok(std::path::PathBuf::new())
-    };
-    let result = match fs::read_link(link_path) {
-        Ok(r) => r,
-        Err(_e) => return Ok(std::path::PathBuf::new())
-    };
-    let abs = PathAbs::new(&result)?;
-    Ok(abs.into())
-}
-
-// find the parent directory of a given dir or file
-fn get_parent_dir(path: &std::path::Path) -> &std::path::Path {
-    match path.parent() {
-        Some(d) => return d,
-        None => return path
-    };
-}
-
-// convert a string to a Rust file path
-fn push_file_path(path: &str, suffix: &str) -> std::path::PathBuf {
-    let mut p = path.to_owned();
-    p.push_str(suffix);
-    let r = std::path::Path::new(&p);
-    return r.to_owned()
-}
-
-// get metadata for the file's content (md5, mime_type)
-fn get_file_content_info(file: &std::fs::File) -> std::io::Result<(FileContentMetaData)> {
-    let mut fc = FileContentMetaData {md5: "".to_string(), mime_type: "".to_string()};
-    let mut buffer = read_file_bytes(file)?;
-    fc.md5 = format!("{:x}", md5::compute(&buffer)).to_lowercase();
-    fc.mime_type = get_filetype(&mut buffer);
-    drop(buffer);
-    Ok(fc)
-}
 
 /*
     regex's to find interesting strings in files
@@ -705,8 +107,8 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
     for c in RE.captures_iter(text) {
         let line = &c[0];
         TxFileContent::new("".to_string(), "FileContent".to_string(), 
-                        get_now()?, file.to_string(), line.into(), 
-                        "".to_string()).report_log();
+                                    get_now()?, file.to_string(), line.into(), 
+                                    "".to_string()).report_log();
     }
     Ok(())
 }
@@ -743,44 +145,6 @@ fn watch_file(file_path: &std::path::Path, path: &str, already_seen: &mut Vec<St
     Ok(())
 }
 
-// gather metadata for symbolic links
-fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_path: String, hidden: bool) -> std::io::Result<()> {
-    let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
-    if link.created().is_ok() {
-        ctime = format_date(link.created()?.into())?;
-    }
-    let atime = format_date(link.accessed()?.into())?;
-    let wtime = format_date(link.modified()?.into())?;
-    let size = link.len();
-
-    TxLink::new(pdt.to_string(), "ShellLink".to_string(), get_now()?, 
-                link_path, file_path, atime, wtime, 
-                ctime, size, hidden).report_log();
-    Ok(())
-}
-
-/*
-    determine if a file is a symlink or not
-    return parent data_type and path to file
-    never return the path to a symnlink
-*/
-fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<FileParent> {
-    let mut fp = FileParent {
-        parent_data_type: pdt.to_string(), 
-        path: PathAbs::new(&link_path)?.clone().into() 
-        };
-    let sl = fs::symlink_metadata(&link_path)?;
-    if sl.file_type().is_symlink() {
-        fp.path = resolve_link(link_path)?;
-        fp.parent_data_type = "ShellLink".to_string();
-        process_link(pdt, sl, 
-                    link_path.to_string_lossy().into(), 
-                    fp.path.to_string_lossy().into(), 
-                    is_hidden(&fp.path))?;
-    }
-    Ok(fp)
-}
-
 // harvest a file's metadata
 fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
@@ -803,62 +167,12 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
         let fc = get_file_content_info(&file)?;
         drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(fp.parent_data_type, "File".to_string(), get_now()?, 
-                    path.into(), fc.md5, fc.mime_type, atime, wtime, 
-                    ctime, size, is_hidden(&fp.path)).report_log();
+                                path.into(), fc.md5, fc.mime_type, atime, wtime, 
+                                ctime, size, is_hidden(&fp.path)).report_log();
 
         watch_file(&fp.path, path, already_seen)?;
     }
     Ok(())
-}
-
-// split string on string and return vec
-fn split_to_vec(source: &str, split_by: &str) -> Vec<String> {
-    source.split(split_by).map(|s| s.to_string()).collect()
-}
-
-// convert string to i128 or return 0 if fails
-fn to_int128(num: &str) -> i128 {
-    let n = match num.parse::<i128>() {
-        Ok(i) => i,
-        _ => 0
-    };
-    return n
-}
-
-// convert string to i64 or return 0 if fails
-fn to_int64(num: &str) -> i64 {
-    let n = match num.parse::<i64>() {
-        Ok(i) => i,
-        _ => 0
-    };
-    return n
-}
-
-// convert string to i32 or return 0 if fails
-fn to_int32(num: &str) -> i32 {
-    let n = match num.parse::<i32>() {
-        Ok(i) => i,
-        _ => 0
-    };
-    return n
-}
-
-// convert string to i32 or return 0 if fails
-fn to_int16(num: &str) -> i16 {
-    let n = match num.parse::<i16>() {
-        Ok(i) => i,
-        _ => 0
-    };
-    return n
-}
-
-// convert string to i8 or return 0 if fails
-fn to_int8(num: &str) -> i8 {
-    let n = match num.parse::<i8>() {
-        Ok(i) => i,
-        _ => 0
-    };
-    return n
 }
 
 /*
@@ -888,40 +202,6 @@ fn get_ipv4_port(socket: &str) -> std::io::Result<Socket> {
     s.ip = std::net::Ipv4Addr::from(u32::from_be(ip)).to_string();
     s.port = port as u16;
     return Ok(s);
-}
-
-/*
-    Convert u128 to IPv6
-        Procfs stores IPv6 as individual reversed dwords.
-        Therefore have to break the 128bit value into 4 dwords, reverse them and recombine
-    See: https://users.rust-lang.org/t/convert-hex-socket-notation-to-ip-and-port/33858/8
-*/
-fn u128_swap_u32s_then_to_ipv6 (n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
-    use ::arrayvec::ArrayVec;
-
-    // Split u128 into four u32s
-    let u32s: ArrayVec<[u32; 4]> =
-            (0 .. 4)
-            .rev()
-            .map(|i| (n >> (32 * i)) as u32)
-            .collect();
-    
-    // Convert each u32 into four u8s using network endianness
-    let u8s: ArrayVec<[[u8; 4]; 4]> =
-        u32s.into_iter()
-            .map(u32::to_ne_bytes)
-            .collect()
-    ;
-    
-    // flatten the u8s
-    let u8s: [u8; 16] = ArrayVec::into_inner(
-        u8s.iter()
-            .flat_map(|it| it.iter().copied())
-            .collect()
-    ).unwrap();
-
-    // Convert the u8s into an Ipv6 address
-    Ok(::std::net::Ipv6Addr::from(u8s))
 }
 
 // take IPv6 socket and translate it
@@ -956,25 +236,6 @@ fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
     return Ok(s);
 }
 
-// translate hex state to human readable
-fn get_tcp_state(state: &str) -> String {
-    match state {
-        "01" => return "TCP_ESTABLISHED".to_string(),
-        "02" => return "TCP_SYN_SENT".to_string(),
-        "03" => return "TCP_SYN_RECV".to_string(),
-        "04" => return "TCP_FIN_WAIT1".to_string(),
-        "05" => return "TCP_FIN_WAIT2".to_string(),
-        "06" => return "TCP_TIME_WAIT".to_string(),
-        "07" => return "TCP_CLOSE".to_string(),
-        "08" => return "TCP_CLOSE_WAIT".to_string(),
-        "09" => return "TCP_LAST_ACK".to_string(),
-        "0A" => return "TCP_LISTEN".to_string(),
-        "0B" => return "TCP_CLOSING".to_string(),    /* Now a valid state */
-        "0C" => return "TCP_MAX_STATES".to_string(),  /* Leave at the end! */
-        _ => return "UNKNOWN".to_string()
-    }
-}
-
 /*
     report on network connections for each process
     /proc/net/{tcp, tcp6, udp, udp6}
@@ -997,9 +258,9 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     let local = get_ip_port(fields[1])?;
                     let remote = get_ip_port(fields[2])?;
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
-                                path.to_string(), pid, to_int32(fields[7]), local.ip, 
-                                local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
-                                to_int128(&inode)).report_log();
+                                            path.to_string(), pid, to_int32(fields[7]), local.ip, 
+                                            local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
+                                            to_int128(&inode)).report_log();
                 }
                 matched = true;
             }
@@ -1051,8 +312,8 @@ fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<
     let ppid = to_int32(&stat[3]);
 
     TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
-                path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
-                cwd.to_string_lossy().into()).report_log();
+                            path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
+                            cwd.to_string_lossy().into()).report_log();
     process_file_dscriptors(&path, root_path, pid)?;
     Ok(())
 }
@@ -1070,7 +331,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         let state = values[4].to_string();
         let offset = values[5].to_string();
         TxLoadedModule::new(pdt.to_string(), "KernelModule".to_string(), get_now()?, 
-                        name, size, loaded, dependencies, state, offset).report_log();
+                                        name, size, loaded, dependencies, state, offset).report_log();
     }
     Ok(())
 }
@@ -1085,7 +346,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         let file_system_type = values[2].to_string();
         let mount_options = values[3].replace(",", ", ").trim().to_string();
         TxMountPoint::new(pdt.to_string(), "MountPoint".to_string(), get_now()?, 
-                        name, mount_point, file_system_type, mount_options).report_log();
+                                    name, mount_point, file_system_type, mount_options).report_log();
     }
     Ok(())
 }
@@ -1118,13 +379,6 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
     Ok(())
 }
 
-// read file's lines into a string vec for parsing
-fn file_to_vec(filename: &str) -> io::Result<Vec<String>> {
-    let file_in = fs::File::open(filename)?;
-    let file_reader = BufReader::new(file_in);
-    Ok(file_reader.lines().filter_map(io::Result::ok).collect())
-}
-
 // parse local users
 fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
     let lines = file_to_vec(path)?;
@@ -1137,8 +391,8 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let home_directory = values[5].to_string();
         let shell = values[6].to_string();
         TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
-                        account_name, uid, gid, description, home_directory, 
-                        shell).report_log();
+                                    account_name, uid, gid, description, home_directory, 
+                                    shell).report_log();
     }
     Ok(())
 }
@@ -1152,7 +406,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let gid = values[2].to_string();
         let members = values[3].to_string();
         TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
-                        group_name, gid, members).report_log();
+                                    group_name, gid, members).report_log();
     }
     Ok(())
 }
