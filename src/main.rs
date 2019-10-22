@@ -21,6 +21,7 @@ extern crate chrono;            // DateTime manipulation
 extern crate tree_magic;        // needed to find MIME type of files
 extern crate path_abs;          // needed to create absolute file paths from relative
 extern crate regex;
+extern crate arrayvec;
 #[macro_use] extern crate lazy_static;
 
 use walkdir::WalkDir;
@@ -290,8 +291,8 @@ struct TxLocalUser {
     data_type: String,
     timestamp: String,
     account_name: String,
-    uid: String,
-    gid: String,
+    uid: i32,
+    gid: i32,
     description: String,
     home_directory: String,
     shell: String
@@ -302,8 +303,8 @@ impl TxLocalUser {
             data_type: String,
             timestamp: String,
             account_name: String, 
-            uid: String,
-            gid: String, 
+            uid: i32,
+            gid: i32, 
             description: String,
             home_directory: String,
             shell: String) -> TxLocalUser {
@@ -475,6 +476,67 @@ impl TxMountPoint {
     }
 }
 
+// hold network connection metadata
+#[derive(Serialize)]
+struct TxNetConn {
+    parent_data_type: String,
+    #[serde(default = "NetConn")]
+    data_type: String,
+    timestamp: String,
+    path: String,
+    pid: i32,
+    uid: i32,
+    l_ip: String,
+    l_port: u16,
+    r_ip: String,
+    r_port: u16,
+    status: String,
+    inode: i128
+}
+impl TxNetConn {
+    fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            path: String,
+            pid: i32,
+            uid: i32,
+            l_ip: String,
+            l_port: u16,
+            r_ip: String,
+            r_port: u16,
+            status: String,
+            inode: i128) -> TxNetConn {
+        TxNetConn {
+            parent_data_type,
+            data_type,
+            timestamp,
+            path,
+            pid,
+            uid,
+            l_ip,
+            l_port,
+            r_ip,
+            r_port,
+            status,
+            inode
+        }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    fn report_log(&self) {
+        println!("{}", self.to_log());
+    }
+}
+
 // tracks path of file and the parent data_type that caused us to look at the file
 struct FileParent {
     parent_data_type: String,
@@ -486,6 +548,14 @@ struct FileContentMetaData {
     md5: String,
     mime_type: String
 }
+
+// holds ip socket
+struct Socket {
+    ip: String,
+    port: u16
+}
+
+
 
 // return file mime type string
 fn get_filetype(buffer: &mut Vec<u8>) -> String {
@@ -773,6 +843,15 @@ fn to_int32(num: &str) -> i32 {
     return n
 }
 
+// convert string to i32 or return 0 if fails
+fn to_int16(num: &str) -> i16 {
+    let n = match num.parse::<i16>() {
+        Ok(i) => i,
+        _ => 0
+    };
+    return n
+}
+
 // convert string to i8 or return 0 if fails
 fn to_int8(num: &str) -> i8 {
     let n = match num.parse::<i8>() {
@@ -782,9 +861,176 @@ fn to_int8(num: &str) -> i8 {
     return n
 }
 
+/*
+    report on network connections for each process
+*/
+fn process_open_file(path: &str, pid: i32) -> std::io::Result<()> {
+    
+    Ok(())
+}
+
+fn get_ipv4_port(socket: &str) -> std::io::Result<Socket> {
+    let mut s = Socket {ip: "".to_string(), port: 0};
+    let (ip, port) =
+        match socket
+                .split(':')
+                .map(|s| {
+                    u32::from_str_radix(s, 0x10)
+                        .expect("hex number")
+                })
+                .collect::<::arrayvec::ArrayVec<[_; 2]>>()
+                [..]
+        {
+            | [ip, port] => (ip, port),
+            | _          => panic!("Invalid input!"),
+        };
+    s.ip = std::net::Ipv4Addr::from(u32::from_be(ip)).to_string();
+    s.port = port as u16;
+    return Ok(s);
+}
+
+/*
+    Convert u128 to IPv6
+    See: https://users.rust-lang.org/t/convert-hex-socket-notation-to-ip-and-port/33858/8
+*/
+fn u128_swap_u32s_then_to_ipv6 (n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
+    use ::arrayvec::ArrayVec;
+
+    // Split u128 into four u32s
+    let u32s: ArrayVec<[u32; 4]> =
+            (0 .. 4)
+            .rev()
+            .map(|i| (n >> (32 * i)) as u32)
+            .collect();
+    
+    // Convert each u32 into four u8s using network endianness
+    let u8s: ArrayVec<[[u8; 4]; 4]> =
+        u32s.into_iter()
+            .map(u32::to_ne_bytes)
+            .collect()
+    ;
+    
+    // flatten the u8s
+    let u8s: [u8; 16] = ArrayVec::into_inner(
+        u8s.iter()
+            .flat_map(|it| it.iter().copied())
+            .collect()
+    ).unwrap();
+
+    // Convert the u8s into an Ipv6 address
+    Ok(::std::net::Ipv6Addr::from(u8s))
+}
+
+fn get_ipv6_port(socket: &str) -> std::io::Result<Socket> {
+    let mut s = Socket {ip: "".to_string(), port: 0};
+    let (ip, port) =
+        match socket
+                .split(':')
+                .map(|s| {
+                    u128::from_str_radix(s, 0x10)
+                        .expect("hex number")
+                })
+                .collect::<::arrayvec::ArrayVec<[_; 2]>>()
+                [..]
+        {
+            | [ip, port] => (ip, port),
+            | _          => panic!("Invalid input!"),
+        };
+    s.ip = u128_swap_u32s_then_to_ipv6(u128::from(ip))?.to_string();
+    s.port = port as u16;
+    return Ok(s);
+}
+
+fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
+    let s;
+    if socket.len() < 14 {
+        s = get_ipv4_port(socket)?;
+    } else {
+        s = get_ipv6_port(socket)?;
+    }
+    return Ok(s);
+}
+
+fn get_tcp_state(state: &str) -> String {
+    match state {
+        "01" => return "TCP_ESTABLISHED".to_string(),
+        "02" => return "TCP_SYN_SENT".to_string(),
+        "03" => return "TCP_SYN_RECV".to_string(),
+        "04" => return "TCP_FIN_WAIT1".to_string(),
+        "05" => return "TCP_FIN_WAIT2".to_string(),
+        "06" => return "TCP_TIME_WAIT".to_string(),
+        "07" => return "TCP_CLOSE".to_string(),
+        "08" => return "TCP_CLOSE_WAIT".to_string(),
+        "09" => return "TCP_LAST_ACK".to_string(),
+        "0A" => return "TCP_LISTEN".to_string(),
+        "0B" => return "TCP_CLOSING".to_string(),    /* Now a valid state */
+        "0C" => return "TCP_MAX_STATES".to_string(),  /* Leave at the end! */
+        _ => return "UNKNOWN".to_string()
+    }
+}
+
+/*
+    report on network connections for each process
+    /proc/net/{tcp, tcp6, udp, udp6}
+*/
+fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
+    const NET_CONNS: [&str; 4] = ["tcp", "tcp6", "udp", "udp6"];
+    let tmp: Vec<&str> = conn.split("[").collect();
+    if tmp.len() > 1 {
+        let inode = tmp[1].replace("]", "");
+        for f in NET_CONNS.iter() {
+            let conns = push_file_path("/proc/net/", f);
+            let file_contents = read_file_string(&conns)?;
+            let search = "(?mi)^.+ ".to_owned() + &inode + " .+$";
+            let re = Regex::new(&search).expect("bad regex");
+            let mut matched = false;
+            for c in re.captures_iter(&file_contents) {
+                let line = &c[0];
+                let fields: Vec<&str> = line.trim().split(" ").collect();
+                if fields.len() > 8 {
+                    let local = get_ip_port(fields[1])?;
+                    let remote = get_ip_port(fields[2])?;
+                    TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
+                                path.to_string(), pid, to_int32(fields[7]), local.ip, 
+                                local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
+                                to_int128(&inode)).report_log();
+                }
+                matched = true;
+            }
+            if matched { break };
+        }
+    }
+    Ok(())
+}
+
+/*
+    examine file descriptors
+    /proc/{PID}/fd
+
+    socket: --> open network connection
+    pipe: --> open redirector
+*/
+fn process_file_dscriptors(path: &str, root_path: &str, pid: i32) -> std::io::Result<()> {
+    let descriptors = push_file_path(root_path, "/fd");
+    for d in WalkDir::new(descriptors)
+                .max_depth(1)
+                .into_iter()
+                .filter_map(|e| e.ok()) {
+        let entry: String = resolve_link(d.path())?.to_string_lossy().into();
+        if entry.contains("socket:") {
+            process_net_conn(path, &entry, pid)?;
+        } else if entry.contains("pipe:") {
+            process_open_file(&entry, pid)?;
+        } else {
+
+        }
+    }
+    Ok(())
+}
+
 // gather and report process information via procfs
 fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<()> {
-    let path = resolve_link(&bin)?.to_string_lossy().into();
+    let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline"))?;
     let cwd = resolve_link(&push_file_path(root_path, "/cwd"))?;
     let env = read_file_string(&push_file_path(root_path, "/environ"))?;
@@ -799,8 +1045,9 @@ fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<
     let ppid = to_int32(&stat[3]);
 
     TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
-                path, cmd, pid, ppid, env, root.to_string_lossy().into(),
+                path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
                 cwd.to_string_lossy().into()).report_log();
+    process_file_dscriptors(&path, root_path, pid)?;
     Ok(())
 }
 
@@ -878,8 +1125,8 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
     for line in lines {
         let values: Vec<&str> = line.split(":").collect();
         let account_name = values[0].to_string();
-        let uid = values[2].to_string();
-        let gid = values[3].to_string();
+        let uid = to_int32(values[2]);
+        let gid = to_int32(values[3]);
         let description = values[4].to_string();
         let home_directory = values[5].to_string();
         let shell = values[6].to_string();
