@@ -417,10 +417,10 @@ pub struct TxNetConn {
     pub path: String,
     pub pid: i32,
     pub uid: i32,
-    pub l_ip: String,
-    pub l_port: u16,
-    pub r_ip: String,
-    pub r_port: u16,
+    pub l_ip: String,   // local ip
+    pub l_port: u16,    // local port
+    pub r_ip: String,   // remote ip
+    pub r_port: u16,    // remote port
     pub status: String,
     pub inode: i128
 }
