@@ -869,6 +869,7 @@ fn process_open_file(path: &str, pid: i32) -> std::io::Result<()> {
     Ok(())
 }
 
+// take IPv4 socket and translate it
 fn get_ipv4_port(socket: &str) -> std::io::Result<Socket> {
     let mut s = Socket {ip: "".to_string(), port: 0};
     let (ip, port) =
@@ -891,6 +892,8 @@ fn get_ipv4_port(socket: &str) -> std::io::Result<Socket> {
 
 /*
     Convert u128 to IPv6
+        Procfs stores IPv6 as individual reversed dwords.
+        Therefore have to break the 128bit value into 4 dwords, reverse them and recombine
     See: https://users.rust-lang.org/t/convert-hex-socket-notation-to-ip-and-port/33858/8
 */
 fn u128_swap_u32s_then_to_ipv6 (n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
@@ -921,6 +924,7 @@ fn u128_swap_u32s_then_to_ipv6 (n: u128) -> std::io::Result<::std::net::Ipv6Addr
     Ok(::std::net::Ipv6Addr::from(u8s))
 }
 
+// take IPv6 socket and translate it
 fn get_ipv6_port(socket: &str) -> std::io::Result<Socket> {
     let mut s = Socket {ip: "".to_string(), port: 0};
     let (ip, port) =
@@ -941,6 +945,7 @@ fn get_ipv6_port(socket: &str) -> std::io::Result<Socket> {
     return Ok(s);
 }
 
+// is the IP an IPv4 or IPv6
 fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
     let s;
     if socket.len() < 14 {
@@ -951,6 +956,7 @@ fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
     return Ok(s);
 }
 
+// translate hex state to human readable
 fn get_tcp_state(state: &str) -> String {
     match state {
         "01" => return "TCP_ESTABLISHED".to_string(),
