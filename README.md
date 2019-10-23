@@ -41,5 +41,9 @@ Process information is retreived via ProcFS parsing.
 The "data_type" field is used to report what the metadata in that log is pulled from. e.g. File, FileContent, Process, ... .  
 The "parent_data_type" field is used to report if that log was generated due to examining another data_type. e.g. the "FileContent" data_type may trigger a "File" data_type if a file path is found in a file's contents.
 
+The network connection logs do not show originator or responder perspectives simply because procfs reports the IPs as local and remote. You can make a good guess as to whether a network connection is incoming or outgoing based upon which port is higher than the other. But, this will not always yeild the correct direction.
+
+If you want to change the field name(s) of any fields please edit the struct field names in the data_def source file.
+
 ## Disclaimer
 This tool comes with no warranty or support. If anyone chooses to use it, you accept all responsability and liability.
