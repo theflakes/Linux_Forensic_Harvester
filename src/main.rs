@@ -51,7 +51,7 @@ const WATCH_PATHS: [&str; 16] = [
     "/root"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 11] = [
+const WATCH_FILES: [&str; 15] = [
     "/etc/passwd",
     "/etc/group",
     "/etc/rc.local",
@@ -62,6 +62,10 @@ const WATCH_FILES: [&str; 11] = [
     "/usr/lib/systemd/system/",
     "/.bash_profile",
     "/.bashrc",
+    "/.bash_history",
+    "/.bash_logout",
+    "/.lesshst",
+    "/.viminfo",
     "/root/"
     ];
 
