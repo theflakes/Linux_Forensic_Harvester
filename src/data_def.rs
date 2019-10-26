@@ -21,7 +21,8 @@ pub struct TxFile {
     pub uid: u32,
     pub gid: u32,
     pub nlink: u64,
-    pub inode: u64
+    pub inode: u64,
+    pub permissions: String
 }
 impl TxFile {
     pub fn new(
@@ -39,7 +40,8 @@ impl TxFile {
             uid: u32,
             gid: u32,
             nlink: u64, // number of hard links to file
-            inode: u64) -> TxFile {
+            inode: u64,
+            permissions: String) -> TxFile {
         TxFile {
             parent_data_type,
             data_type,
@@ -55,7 +57,8 @@ impl TxFile {
             uid,
             gid,
             nlink,
-            inode
+            inode,
+            permissions
         }
     }
 

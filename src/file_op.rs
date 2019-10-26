@@ -2,12 +2,17 @@ extern crate tree_magic;        // needed to find MIME type of files
 extern crate path_abs;          // needed to create absolute file paths from relative
 extern crate md5;
 extern crate file;
+extern crate libc;
 
 use crate::{data_def::*, mutate::*, time::*};
 use std::fs::{self, File};
 use std::io::{Read, BufRead, BufReader};
 use std::io;
 use path_abs::{PathAbs, PathInfo};
+use libc::{S_IRGRP, S_IROTH, S_IRUSR, 
+           S_IWGRP, S_IWOTH, S_IWUSR, 
+           S_IXGRP, S_IXOTH, S_IXUSR, 
+           S_ISUID, S_ISGID};
 
 // return file mime type string
 pub fn get_filetype(buffer: &mut Vec<u8>) -> String {
@@ -19,12 +24,43 @@ pub fn path_exists(path: &str) -> bool {
     fs::metadata(path).is_ok()
 }
 
+/*
+ convert permissions to human readable
+ see?: https://gist.github.com/mre/91ebb841c34df69671bd117ead621a8b
+*/
+fn triplet(mode: u32, read: u32, write: u32, execute: u32) -> String {
+	return match (mode & read, mode & write, mode & execute) {
+		(0, 0, 0) => "---",
+		(_, 0, 0) => "r--",
+		(0, _, 0) => "-w-",
+		(0, 0, _) => "--x",
+		(_, 0, _) => "r-x",
+		(_, _, 0) => "rw-",
+		(0, _, _) => "-wx",
+		(_, _, _) => "rwx",
+	}.to_string()
+}
+
+// convert permissions to human readable
+pub fn parse_permissions(mode: u32) -> String {
+	let user = match mode & S_ISUID as u32 {
+        0 => triplet(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into()),
+        _ => triplet(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into()).replace("x", "s")
+    };
+    let group = match mode & S_ISGID as u32 {
+        0 => triplet(mode, S_IRGRP.into(), S_IWGRP.into(), S_IXGRP.into()),
+        _ => triplet(mode, S_IRGRP.into(), S_IWGRP.into(), S_IXGRP.into()).replace("x", "s")
+    };
+	let other = triplet(mode, S_IROTH.into(), S_IWOTH.into(), S_IXOTH.into());
+    return [user, group, other].join("")
+}
+
 // find if a file has the suid or sgid bit set
 pub fn is_suid_sgid(mode: u32) -> String {
-    if (mode & 0o4000) != 0 { 
+    if (mode & S_ISUID as u32) != 0 { 
         return "suid".to_string();
     }
-    if (mode & 0o2000) != 0 { 
+    if (mode & S_ISGID as u32) != 0 { 
         return "sgid".to_string(); 
     }
     return "".to_string()
@@ -41,7 +77,7 @@ pub fn is_hidden(file_path: &std::path::PathBuf) -> bool {
     } else if file_path.is_dir() {
         path.to_string_lossy().contains("/.")
     } else {
-        false
+        return false
     }
 }
 

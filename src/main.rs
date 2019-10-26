@@ -170,12 +170,13 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
             Some(s) => s,
             None => ""
             };
+        let perms = parse_permissions(file.metadata()?.mode());
         let fc = get_file_content_info(&file)?;
         drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(fp.parent_data_type, "File".to_string(), get_now()?, 
                                 path.into(), fc.md5, fc.mime_type, atime, wtime, 
                                 ctime, size, is_hidden(&fp.path), uid, gid, 
-                                nlink, inode).report_log();
+                                nlink, inode, perms).report_log();
 
         watch_file(&fp.path, path, already_seen)?;
     }
