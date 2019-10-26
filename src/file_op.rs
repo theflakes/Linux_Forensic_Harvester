@@ -9,7 +9,7 @@ use std::fs::{self, File};
 use std::io::{Read, BufRead, BufReader};
 use std::io;
 use path_abs::{PathAbs, PathInfo};
-use libc::{S_IRGRP, S_IROTH, S_IRUSR, 
+use libc::{S_IRGRP, S_IROTH, S_IRUSR, // see: https://www.gnu.org/software/libc/manual/html_node/Permission-Bits.html
            S_IWGRP, S_IWOTH, S_IWUSR, 
            S_IXGRP, S_IXOTH, S_IXUSR, 
            S_ISUID, S_ISGID};
