@@ -13,7 +13,7 @@ If you just want to run it, download the "lin_fh" binary.
 * Output via network comms
 * Web shell detection
 * ~~Shell histories~~
-* Setuid / setgid
+* ~~Setuid / setgid~~
 * Traps
 * ...
 
