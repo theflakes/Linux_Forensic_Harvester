@@ -17,7 +17,11 @@ pub struct TxFile {
     pub last_write_time: String,
     pub creation_time: String,
     pub size: u64,
-    pub hidden: bool
+    pub hidden: bool,
+    pub uid: u32,
+    pub gid: u32,
+    pub nlink: u64,
+    pub inode: u64
 }
 impl TxFile {
     pub fn new(
@@ -31,7 +35,11 @@ impl TxFile {
             last_write_time: String,
             creation_time: String,
             size: u64,
-            hidden: bool) -> TxFile {
+            hidden: bool,
+            uid: u32,
+            gid: u32,
+            nlink: u64, // number of hard links to file
+            inode: u64) -> TxFile {
         TxFile {
             parent_data_type,
             data_type,
@@ -43,7 +51,11 @@ impl TxFile {
             last_write_time,
             creation_time,
             size,
-            hidden
+            hidden,
+            uid,
+            gid,
+            nlink,
+            inode
         }
     }
 

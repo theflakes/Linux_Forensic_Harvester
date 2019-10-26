@@ -25,10 +25,8 @@ use walkdir::WalkDir;
 use std::thread;
 use std::fs::{self};
 use regex::Regex;
-use data_def::*;
-use file_op::*;
-use mutate::*;
-use time::*;
+use {data_def::*, file_op::*, mutate::*, time::*};
+use std::os::unix::fs::MetadataExt;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
@@ -164,6 +162,10 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
         let atime = format_date(file.metadata()?.accessed()?.into())?;
         let wtime = format_date(file.metadata()?.modified()?.into())?;
         let size = file.metadata()?.len();
+        let uid = file.metadata()?.uid();
+        let gid = file.metadata()?.gid();
+        let nlink = file.metadata()?.nlink();
+        let inode = file.metadata()?.ino();
         let path = match fp.path.to_str() {
             Some(s) => s,
             None => ""
@@ -172,7 +174,8 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
         drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(fp.parent_data_type, "File".to_string(), get_now()?, 
                                 path.into(), fc.md5, fc.mime_type, atime, wtime, 
-                                ctime, size, is_hidden(&fp.path)).report_log();
+                                ctime, size, is_hidden(&fp.path), uid, gid, 
+                                nlink, inode).report_log();
 
         watch_file(&fp.path, path, already_seen)?;
     }
@@ -232,7 +235,7 @@ fn get_ipv6_port(socket: &str) -> std::io::Result<Socket> {
 // is the IP an IPv4 or IPv6
 fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
     let s;
-    if socket.len() < 14 {
+    if socket.len() < 14 {  // kludge to distringuish ipv4 from ipv6 sockets. Do something more professional!
         s = get_ipv4_port(socket)?;
     } else {
         s = get_ipv6_port(socket)?;
@@ -441,14 +444,32 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
     Ok(())
 }
 
+// find SUID and SGID files
+fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    for entry in WalkDir::new("/")
+                    .into_iter()
+                    .filter_map(|e| e.ok()) {
+        let md = entry.metadata()?;
+        if md.is_file() {
+            let mode = md.mode();
+            let pdt = is_suid_sgid(mode);
+            if !pdt.is_empty() {
+                process_file(&pdt, &entry.into_path(), already_seen)?;
+            }
+            thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
+        }
+    }
+    Ok(())
+}
+
 // let's start this thing
 fn main() -> std::io::Result<()> {
     let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops
 
     for path in WATCH_PATHS.iter() {
         if !path_exists(path) { continue }
-        let pdt = "".to_string();
         let md = fs::metadata(path)?;
+        let pdt = is_suid_sgid(md.mode());
         if md.is_dir() {  // if this is a directory we have more to do
             match process_directory(&pdt, path, &mut already_seen) {
                 Ok(f) => f,
@@ -459,5 +480,6 @@ fn main() -> std::io::Result<()> {
                 Err(e) => println!("{}", e),};
         }
     }
+    find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
     Ok(())
 }

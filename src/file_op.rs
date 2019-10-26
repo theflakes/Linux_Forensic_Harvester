@@ -19,6 +19,19 @@ pub fn path_exists(path: &str) -> bool {
     fs::metadata(path).is_ok()
 }
 
+// find if a file has the suid or sgid bit set
+pub fn is_suid_sgid(mode: u32) -> String {
+    let suid = mode & 0o4000;
+    if suid != 0 { 
+        return "suid".to_string();
+    }
+    let sgid = mode & 0o2000;
+    if sgid != 0 { 
+        return "sgid".to_string(); 
+    }
+    return "".to_string()
+}
+
 // is a file or directory hidden
 pub fn is_hidden(file_path: &std::path::PathBuf) -> bool {
     let path = match file_path.file_name() {
