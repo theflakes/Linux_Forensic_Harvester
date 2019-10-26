@@ -74,15 +74,14 @@ pub fn u128_swap_u32s_then_to_ipv6 (n: u128) -> std::io::Result<::std::net::Ipv6
     let u8s: ArrayVec<[[u8; 4]; 4]> =
         u32s.into_iter()
             .map(u32::to_ne_bytes)
-            .collect()
-    ;
+            .collect();
     
     // flatten the u8s
     let u8s: [u8; 16] = ArrayVec::into_inner(
         u8s.iter()
             .flat_map(|it| it.iter().copied())
             .collect()
-    ).unwrap();
+        ).unwrap();
 
     // Convert the u8s into an Ipv6 address
     Ok(::std::net::Ipv6Addr::from(u8s))
