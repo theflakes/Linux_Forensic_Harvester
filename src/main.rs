@@ -109,8 +109,8 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
     for c in RE.captures_iter(text) {
         let line = &c[0];
         TxFileContent::new("".to_string(), "FileContent".to_string(), 
-                                    get_now()?, file.to_string(), line.into(), 
-                                    "".to_string()).report_log();
+                            get_now()?, file.to_string(), line.into(), 
+                            "".to_string()).report_log();
     }
     Ok(())
 }
@@ -174,9 +174,9 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
         let fc = get_file_content_info(&file)?;
         drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(fp.parent_data_type, "File".to_string(), get_now()?, 
-                                path.into(), fc.md5, fc.mime_type, atime, wtime, 
-                                ctime, size, is_hidden(&fp.path), uid, gid, 
-                                nlink, inode, perms).report_log();
+                    path.into(), fc.md5, fc.mime_type, atime, wtime, 
+                    ctime, size, is_hidden(&fp.path), uid, gid, 
+                    nlink, inode, perms).report_log();
 
         watch_file(&fp.path, path, already_seen)?;
     }
@@ -266,9 +266,9 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     let local = get_ip_port(fields[1])?;
                     let remote = get_ip_port(fields[2])?;
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
-                                            path.to_string(), pid, to_int32(fields[7]), local.ip, 
-                                            local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
-                                            to_int128(&inode)).report_log();
+                                    path.to_string(), pid, to_int32(fields[7]), local.ip, 
+                                    local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
+                                    to_int128(&inode)).report_log();
                 }
                 matched = true;
             }
@@ -320,8 +320,8 @@ fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<
     let ppid = to_int32(&stat[3]);
 
     TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
-                            path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
-                            cwd.to_string_lossy().into()).report_log();
+                    path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
+                    cwd.to_string_lossy().into()).report_log();
     process_file_dscriptors(&path, root_path, pid)?;
     Ok(())
 }
@@ -339,7 +339,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         let state = values[4].to_string();
         let offset = values[5].to_string();
         TxLoadedModule::new(pdt.to_string(), "KernelModule".to_string(), get_now()?, 
-                                        name, size, loaded, dependencies, state, offset).report_log();
+                            name, size, loaded, dependencies, state, offset).report_log();
     }
     Ok(())
 }
@@ -354,7 +354,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         let file_system_type = values[2].to_string();
         let mount_options = values[3].replace(",", ", ").trim().to_string();
         TxMountPoint::new(pdt.to_string(), "MountPoint".to_string(), get_now()?, 
-                                    name, mount_point, file_system_type, mount_options).report_log();
+                            name, mount_point, file_system_type, mount_options).report_log();
     }
     Ok(())
 }
@@ -399,8 +399,8 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let home_directory = values[5].to_string();
         let shell = values[6].to_string();
         TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
-                                    account_name, uid, gid, description, home_directory, 
-                                    shell).report_log();
+                        account_name, uid, gid, description, home_directory, 
+                        shell).report_log();
     }
     Ok(())
 }
@@ -414,7 +414,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let gid = values[2].to_string();
         let members = values[3].to_string();
         TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
-                                    group_name, gid, members).report_log();
+                            group_name, gid, members).report_log();
     }
     Ok(())
 }
