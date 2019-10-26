@@ -15,6 +15,7 @@ If you just want to run it, download the "lin_fh" binary.
 * ~~Shell histories~~
 * ~~Setuid / setgid~~
 * Traps
+* Document parent and child data type relation
 * ...
 
 ## Building tool
