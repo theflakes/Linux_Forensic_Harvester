@@ -43,7 +43,7 @@ fn triplet(mode: u32, read: u32, write: u32, execute: u32) -> String {
 
 // convert permissions to human readable
 pub fn parse_permissions(mode: u32) -> String {
-	let user = match mode & S_ISUID as u32 {
+    let user = match mode & S_ISUID as u32 {
         0 => triplet(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into()),
         _ => triplet(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into()).replace("x", "s")
     };
