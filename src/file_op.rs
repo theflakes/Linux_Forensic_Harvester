@@ -21,12 +21,10 @@ pub fn path_exists(path: &str) -> bool {
 
 // find if a file has the suid or sgid bit set
 pub fn is_suid_sgid(mode: u32) -> String {
-    let suid = mode & 0o4000;
-    if suid != 0 { 
+    if (mode & 0o4000) != 0 { 
         return "suid".to_string();
     }
-    let sgid = mode & 0o2000;
-    if sgid != 0 { 
+    if (mode & 0o2000) != 0 { 
         return "sgid".to_string(); 
     }
     return "".to_string()
