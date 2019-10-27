@@ -452,7 +452,7 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
                     .filter_map(|e| e.ok()) {
         let md = match entry.metadata() {
             Ok(d) => d,
-            Err(_e) => continue
+            Err(_e) => continue     // catch any errors so we can finish searching all dirs
             };
         if md.is_file() {
             let mode = md.mode();
