@@ -380,7 +380,7 @@ impl TxLoadedModule {
 #[derive(Serialize)]
 pub struct TxMountPoint {
     pub parent_data_type: String,
-    #[serde(default = "KernelModule")]
+    #[serde(default = "MountPoint")]
     pub data_type: String,
     pub timestamp: String,
     pub name: String,
