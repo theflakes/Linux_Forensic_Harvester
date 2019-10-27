@@ -101,7 +101,8 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
                 (?:^|[\x20"':=!|])(?:/[\w.-]+)+|                                                                    # file path
                 (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
                 [a-z0-9]{300}|                                                                                      # basic encoding
-                (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}                                                     # shell code                      
+                (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}|                                                    # shell code
+                [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}                                                        # email
             ).*$)                                                                    
         "#).expect("bad regex");
     }
@@ -170,13 +171,15 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
             Some(s) => s,
             None => ""
             };
-        let perms = parse_permissions(file.metadata()?.mode());
+        let mode = file.metadata()?.mode();
+        let perms = parse_permissions(mode);
+        let sg = is_suid_sgid(mode);
         let fc = get_file_content_info(&file)?;
         drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(fp.parent_data_type, "File".to_string(), get_now()?, 
                     path.into(), fc.md5, fc.mime_type, atime, wtime, 
                     ctime, size, is_hidden(&fp.path), uid, gid, 
-                    nlink, inode, perms).report_log();
+                    nlink, inode, perms, sg.suid, sg.sgid).report_log();
 
         watch_file(&fp.path, path, already_seen)?;
     }
@@ -456,9 +459,9 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
             };
         if md.is_file() {
             let mode = md.mode();
-            let pdt = is_suid_sgid(mode);
-            if !pdt.is_empty() {
-                process_file(&pdt, &entry.into_path(), already_seen)?;
+            let sg = is_suid_sgid(mode);
+            if sg.suid || sg.sgid {
+                process_file("SuidSgid", &entry.into_path(), already_seen)?;
             }
             thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
         }
@@ -473,13 +476,12 @@ fn main() -> std::io::Result<()> {
     for path in WATCH_PATHS.iter() {
         if !path_exists(path) { continue }
         let md = fs::metadata(path)?;
-        let pdt = is_suid_sgid(md.mode());
         if md.is_dir() {  // if this is a directory we have more to do
-            match process_directory(&pdt, path, &mut already_seen) {
+            match process_directory("", path, &mut already_seen) {
                 Ok(f) => f,
                 Err(e) => println!("{}", e),};
         } else {
-            match process_files(&pdt, path, &mut already_seen) {
+            match process_files("", path, &mut already_seen) {
                 Ok(f) => f,
                 Err(e) => println!("{}", e),};
         }

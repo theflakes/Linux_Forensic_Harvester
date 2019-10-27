@@ -22,7 +22,9 @@ pub struct TxFile {
     pub gid: u32,
     pub nlink: u64,
     pub inode: u64,
-    pub permissions: String
+    pub permissions: String,
+    pub suid: bool,
+    pub sgid: bool
 }
 impl TxFile {
     pub fn new(
@@ -41,7 +43,9 @@ impl TxFile {
             gid: u32,
             nlink: u64, // number of hard links to file
             inode: u64,
-            permissions: String) -> TxFile {
+            permissions: String,
+            suid: bool,
+            sgid: bool) -> TxFile {
         TxFile {
             parent_data_type,
             data_type,
@@ -58,7 +62,9 @@ impl TxFile {
             gid,
             nlink,
             inode,
-            permissions
+            permissions,
+            suid,
+            sgid
         }
     }
 
@@ -499,4 +505,10 @@ pub struct FileContentMetaData {
 pub struct Socket {
     pub ip: String,
     pub port: u16
+}
+
+// Holds info on if Linux perm sticky bits set
+pub struct SuidSgid {
+    pub suid: bool,
+    pub sgid: bool
 }

@@ -12,7 +12,7 @@ use path_abs::{PathAbs, PathInfo};
 use libc::{S_IRGRP, S_IROTH, S_IRUSR, // see: https://www.gnu.org/software/libc/manual/html_node/Permission-Bits.html
            S_IWGRP, S_IWOTH, S_IWUSR, 
            S_IXGRP, S_IXOTH, S_IXUSR, 
-           S_ISUID, S_ISGID};
+           S_ISUID, S_ISGID, S_ISVTX};
 
 // return file mime type string
 pub fn get_filetype(buffer: &mut Vec<u8>) -> String {
@@ -41,29 +41,53 @@ fn triplet(mode: u32, read: u32, write: u32, execute: u32) -> String {
 	}.to_string()
 }
 
+// set the correct suid/sgid bit depending on if executable or not
+fn set_suid_sgid_bit(mode: u32, read: u32, write: u32, execute: u32) -> String {
+    let mut perms = triplet(mode, read, write, execute);
+    if perms.contains("x") {
+        perms = perms.replace("x", "s")
+    } else {
+        perms.pop();
+        perms.push('S');
+    }
+    return perms
+}
+
+// set sticky bit
+fn set_sticky_bit(mode: u32, read: u32, write: u32, execute: u32) -> String {
+    let mut perms = triplet(mode, read, write, execute);
+    perms.pop();
+    perms.push('t');
+    return perms
+}
+
 // convert permissions to human readable
 pub fn parse_permissions(mode: u32) -> String {
     let user = match mode & S_ISUID as u32 {
         0 => triplet(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into()),
-        _ => triplet(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into()).replace("x", "s")
+        _ => set_suid_sgid_bit(mode, S_IRUSR.into(), S_IWUSR.into(), S_IXUSR.into())
     };
     let group = match mode & S_ISGID as u32 {
         0 => triplet(mode, S_IRGRP.into(), S_IWGRP.into(), S_IXGRP.into()),
-        _ => triplet(mode, S_IRGRP.into(), S_IWGRP.into(), S_IXGRP.into()).replace("x", "s")
+        _ => set_suid_sgid_bit(mode, S_IRGRP.into(), S_IWGRP.into(), S_IXGRP.into())
     };
-	let other = triplet(mode, S_IROTH.into(), S_IWOTH.into(), S_IXOTH.into());
+	let other = match mode & S_ISVTX as u32 {
+        0 => triplet(mode, S_IROTH.into(), S_IWOTH.into(), S_IXOTH.into()),
+        _ => set_sticky_bit(mode, S_IROTH.into(), S_IWOTH.into(), S_IXOTH.into())
+    };
     return [user, group, other].join("")
 }
 
 // find if a file has the suid or sgid bit set
-pub fn is_suid_sgid(mode: u32) -> String {
+pub fn is_suid_sgid(mode: u32) -> SuidSgid {
+    let mut sg = SuidSgid {suid: false, sgid: false};
     if (mode & S_ISUID as u32) != 0 { 
-        return "suid".to_string();
+        sg.suid = true;
     }
     if (mode & S_ISGID as u32) != 0 { 
-        return "sgid".to_string(); 
+        sg.sgid = true; 
     }
-    return "".to_string()
+    return sg;
 }
 
 // is a file or directory hidden
