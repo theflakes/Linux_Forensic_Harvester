@@ -450,7 +450,10 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
                     .filter_map(|e| e.ok()) {
-        let md = entry.metadata()?;
+        let md = match entry.metadata() {
+            Ok(d) => d,
+            Err(_e) => continue
+            };
         if md.is_file() {
             let mode = md.mode();
             let pdt = is_suid_sgid(mode);
