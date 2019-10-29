@@ -26,7 +26,7 @@ pub fn path_exists(path: &str) -> bool {
 
 /*
  convert permissions to human readable
- see?: https://gist.github.com/mre/91ebb841c34df69671bd117ead621a8b
+ see: https://gist.github.com/mre/91ebb841c34df69671bd117ead621a8b
 */
 fn triplet(mode: u32, read: u32, write: u32, execute: u32) -> String {
 	return match (mode & read, mode & write, mode & execute) {
