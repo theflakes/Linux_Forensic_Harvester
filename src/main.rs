@@ -239,7 +239,7 @@ fn get_ipv6_port(socket: &str) -> std::io::Result<Socket> {
 // is the IP an IPv4 or IPv6
 fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
     let s;
-    if socket.len() < 14 {  // kludge to distringuish ipv4 from ipv6 sockets. Do something more professional!
+    if socket.len() == 13 {  // IPv4 socket == 13 byte string length inlucding colon --> e.g. 00000000:0016
         s = get_ipv4_port(socket)?;
     } else {
         s = get_ipv6_port(socket)?;
@@ -266,8 +266,8 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                 let line = &c[0];
                 let fields: Vec<&str> = line.trim().split(" ").collect();
                 if fields.len() > 8 {
-                    let local = get_ip_port(fields[1])?;
-                    let remote = get_ip_port(fields[2])?;
+                    let local = get_ip_port(fields[1].trim())?;
+                    let remote = get_ip_port(fields[2].trim())?;
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7]), local.ip, 
                                     local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
