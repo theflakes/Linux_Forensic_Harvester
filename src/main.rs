@@ -153,7 +153,7 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
     let p: String = file_path.to_string_lossy().into();
     if file_path.is_file() && !already_seen.contains(&p.clone()) {
         already_seen.push(p);    // track files we've processed so we don't process them more than once
-        let fp = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get sysmlink info and path to linked file
+        let (parent_data_type, path) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get sysmlink info and path to linked file
         
         let file = open_file(file_path)?;
         let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
@@ -167,21 +167,21 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
         let gid = file.metadata()?.gid();
         let nlink = file.metadata()?.nlink();
         let inode = file.metadata()?.ino();
-        let path = match fp.path.to_str() {
+        let path_buf = match path.to_str() {
             Some(s) => s,
             None => ""
             };
         let mode = file.metadata()?.mode();
         let perms = parse_permissions(mode);
-        let sg = is_suid_sgid(mode);
-        let fc = get_file_content_info(&file)?;
+        let (is_suid, is_sgid) = is_suid_sgid(mode);
+        let (md5, mime_type) = get_file_content_info(&file)?;
         drop(file); // close file handle immediately after not needed to avoid too many files open error
-        TxFile::new(fp.parent_data_type, "File".to_string(), get_now()?, 
-                    path.into(), fc.md5, fc.mime_type, atime, wtime, 
-                    ctime, size, is_hidden(&fp.path), uid, gid, 
-                    nlink, inode, perms, sg.suid, sg.sgid).report_log();
+        TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
+                    path_buf.into(), md5, mime_type, atime, wtime, 
+                    ctime, size, is_hidden(&path), uid, gid, 
+                    nlink, inode, perms, is_suid, is_sgid).report_log();
 
-        watch_file(&fp.path, path, already_seen)?;
+        watch_file(&path, path_buf, already_seen)?;
     }
     Ok(())
 }
@@ -195,56 +195,47 @@ fn process_open_file(path: &str, pid: i32) -> std::io::Result<()> {
 }
 
 // take IPv4 socket and translate it
-fn get_ipv4_port(socket: &str) -> std::io::Result<Socket> {
-    let mut s = Socket {ip: "".to_string(), port: 0};
+fn get_ipv4_port(socket: &str) -> std::io::Result<(String, u16)> {
     let (ip, port) =
         match socket
-                .split(':')
-                .map(|s| {
-                    u32::from_str_radix(s, 0x10)
-                        .expect("hex number")
-                })
-                .collect::<::arrayvec::ArrayVec<[_; 2]>>()
-                [..]
+            .split(':')
+            .map(|s| {
+                u32::from_str_radix(s, 0x10)
+                    .expect("hex number")
+            })
+            .collect::<::arrayvec::ArrayVec<[_; 2]>>()
+            [..]
         {
-            | [ip, port] => (ip, port),
+            | [ip, port] => (std::net::Ipv4Addr::from(u32::from_be(ip)).to_string(), port as u16),
             | _          => panic!("Invalid input!"),
         };
-    s.ip = std::net::Ipv4Addr::from(u32::from_be(ip)).to_string();
-    s.port = port as u16;
-    return Ok(s);
+    return Ok((ip, port));
 }
 
 // take IPv6 socket and translate it
-fn get_ipv6_port(socket: &str) -> std::io::Result<Socket> {
-    let mut s = Socket {ip: "".to_string(), port: 0};
-    let (ip, port) =
-        match socket
-                .split(':')
-                .map(|s| {
-                    u128::from_str_radix(s, 0x10)
-                        .expect("hex number")
-                })
-                .collect::<::arrayvec::ArrayVec<[_; 2]>>()
-                [..]
+fn get_ipv6_port(socket: &str) -> std::io::Result<(String, u16)> {
+    let (ip, port) = match socket
+            .split(':')
+            .map(|s| {
+                u128::from_str_radix(s, 0x10)
+                    .expect("hex number")
+            })
+            .collect::<::arrayvec::ArrayVec<[_; 2]>>()
+            [..]
         {
-            | [ip, port] => (ip, port),
+            | [ip, port] => (u128_swap_u32s_then_to_ipv6(u128::from(ip))?.to_string(), port as u16),
             | _          => panic!("Invalid input!"),
         };
-    s.ip = u128_swap_u32s_then_to_ipv6(u128::from(ip))?.to_string();
-    s.port = port as u16;
-    return Ok(s);
+    return Ok((ip, port));
 }
 
 // is the IP an IPv4 or IPv6
-fn get_ip_port(socket: &str) -> std::io::Result<Socket> {
-    let s;
-    if socket.len() == 13 {  // IPv4 socket == 13 byte string length inlucding colon --> e.g. 00000000:0016
-        s = get_ipv4_port(socket)?;
-    } else {
-        s = get_ipv6_port(socket)?;
-    }
-    return Ok(s);
+fn get_ip_port(socket: &str) -> std::io::Result<(String, u16)> {
+    let (ip, port) = match socket.len() {
+        13 => get_ipv4_port(socket)?,
+        _ => get_ipv6_port(socket)?
+    };
+    return Ok((ip, port));
 }
 
 /*
@@ -266,11 +257,11 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                 let line = &c[0];
                 let fields: Vec<&str> = line.trim().split(" ").collect();
                 if fields.len() > 8 {
-                    let local = get_ip_port(fields[1].trim())?;
-                    let remote = get_ip_port(fields[2].trim())?;
+                    let (local_ip, local_port) = get_ip_port(fields[1].trim())?;
+                    let (remote_ip, remote_port) = get_ip_port(fields[2].trim())?;
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
-                                    path.to_string(), pid, to_int32(fields[7]), local.ip, 
-                                    local.port, remote.ip, remote.port, get_tcp_state(fields[3]), 
+                                    path.to_string(), pid, to_int32(fields[7]), local_ip, 
+                                    local_port, remote_ip, remote_port, get_tcp_state(fields[3]), 
                                     to_int128(&inode)).report_log();
                 }
                 matched = true;
@@ -459,8 +450,8 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
             };
         if md.is_file() {
             let mode = md.mode();
-            let sg = is_suid_sgid(mode);
-            if sg.suid || sg.sgid {
+            let (is_suid, is_sgid) = is_suid_sgid(mode);
+            if is_suid || is_sgid {
                 process_file("SuidSgid", &entry.into_path(), already_seen)?;
             }
             thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu

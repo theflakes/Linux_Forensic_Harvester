@@ -488,27 +488,3 @@ impl TxNetConn {
         println!("{}", self.to_log());
     }
 }
-
-// tracks path of file and the parent data_type that caused us to look at the file
-pub struct FileParent {
-    pub parent_data_type: String,
-    pub path: std::path::PathBuf
-}
-
-// holds info on metadata for file content
-pub struct FileContentMetaData {
-    pub md5: String,
-    pub mime_type: String
-}
-
-// holds ip socket
-pub struct Socket {
-    pub ip: String,
-    pub port: u16
-}
-
-// Holds info on if Linux perm sticky bits set
-pub struct SuidSgid {
-    pub suid: bool,
-    pub sgid: bool
-}

@@ -79,15 +79,11 @@ pub fn parse_permissions(mode: u32) -> String {
 }
 
 // find if a file has the suid or sgid bit set
-pub fn is_suid_sgid(mode: u32) -> SuidSgid {
-    let mut sg = SuidSgid {suid: false, sgid: false};
-    if (mode & S_ISUID as u32) != 0 { 
-        sg.suid = true;
-    }
-    if (mode & S_ISGID as u32) != 0 { 
-        sg.sgid = true; 
-    }
-    return sg;
+pub fn is_suid_sgid(mode: u32) -> (bool, bool) {
+    return (
+        if (mode & S_ISUID as u32) != 0 { true } else { false }, 
+        if (mode & S_ISGID as u32) != 0 { true } else { false }
+        )
 }
 
 // is a file or directory hidden
@@ -167,21 +163,19 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_
     return parent data_type and path to file
     never return the path to a symnlink
 */
-pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<FileParent> {
-    let mut fp = FileParent {
-        parent_data_type: pdt.to_string(), 
-        path: PathAbs::new(&link_path)?.clone().into() 
-        };
+pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<(String, std::path::PathBuf)> {
+    let mut parent_data_type = pdt.to_string();
+    let mut path = PathAbs::new(&link_path)?.clone().into();
     let sl = fs::symlink_metadata(&link_path)?;
     if sl.file_type().is_symlink() {
-        fp.path = resolve_link(link_path)?;
-        fp.parent_data_type = "ShellLink".to_string();
+        path = resolve_link(link_path)?;
+        parent_data_type = "ShellLink".to_string();
         process_link(pdt, sl, 
                     link_path.to_string_lossy().into(), 
-                    fp.path.to_string_lossy().into(), 
-                    is_hidden(&fp.path))?;
+                    path.to_string_lossy().into(), 
+                    is_hidden(&path))?;
     }
-    Ok(fp)
+    Ok((parent_data_type, path))
 }
 
 // find the parent directory of a given dir or file
@@ -193,13 +187,12 @@ pub fn get_parent_dir(path: &std::path::Path) -> &std::path::Path {
 }
 
 // get metadata for the file's content (md5, mime_type)
-pub fn get_file_content_info(file: &std::fs::File) -> std::io::Result<(FileContentMetaData)> {
-    let mut fc = FileContentMetaData {md5: "".to_string(), mime_type: "".to_string()};
+pub fn get_file_content_info(file: &std::fs::File) -> std::io::Result<(String, String)> {
     let mut buffer = read_file_bytes(file)?;
-    fc.md5 = format!("{:x}", md5::compute(&buffer)).to_lowercase();
-    fc.mime_type = get_filetype(&mut buffer);
+    let md5 = format!("{:x}", md5::compute(&buffer)).to_lowercase();
+    let mime_type = get_filetype(&mut buffer);
     drop(buffer);
-    Ok(fc)
+    Ok((md5, mime_type))
 }
 
 // read file's lines into a string vec for parsing
