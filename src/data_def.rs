@@ -20,7 +20,7 @@ pub struct TxFile {
     pub hidden: bool,
     pub uid: u32,
     pub gid: u32,
-    pub nlink: u64,
+    pub nlink: u64, // number of hard links to file
     pub inode: u64,
     pub permissions: String,
     pub suid: bool,
@@ -41,7 +41,7 @@ impl TxFile {
             hidden: bool,
             uid: u32,
             gid: u32,
-            nlink: u64, // number of hard links to file
+            nlink: u64,
             inode: u64,
             permissions: String,
             suid: bool,
