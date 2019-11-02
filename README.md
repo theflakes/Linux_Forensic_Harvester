@@ -5,7 +5,7 @@ If you just want to run it, download the "lin_fh" binary.
 
 ## To do
 * ~~Further procfs parsing~~
-* Expand on interesting strings to capture in "FileContent" data_type
+* ~~Expand on interesting strings to capture in "FileContent" data_type~~
 * Add static examination of binaries, including interesting strings
 * Add other persistence mechanisms
 * ~~Report on local users, /etc/passwd, and group, /etc/groups, membership~~
