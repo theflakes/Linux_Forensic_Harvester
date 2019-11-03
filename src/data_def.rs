@@ -488,3 +488,61 @@ impl TxNetConn {
         println!("{}", self.to_log());
     }
 }
+
+// hold network connection metadata
+#[derive(Serialize)]
+pub struct TxCron {
+    pub parent_data_type: String,
+    #[serde(default = "Cron")]
+    pub data_type: String,
+    pub timestamp: String,
+    pub path: String,
+    pub minute: String,
+    pub hour: String,
+    pub day_of_month: String, 
+    pub month: String,
+    pub day_of_week: String, 
+    pub account_name: String, 
+    pub command_line: String
+}
+impl TxCron {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            path: String,
+            minute: String,
+            hour: String,
+            day_of_month: String, 
+            month: String,
+            day_of_week: String,
+            account_name: String, 
+            command_line: String) -> TxCron {
+        TxCron {
+            parent_data_type,
+            data_type,
+            timestamp,
+            path,
+            minute,
+            hour,
+            day_of_month,
+            month,
+            day_of_week,
+            account_name,
+            command_line
+        }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        println!("{}", self.to_log());
+    }
+}

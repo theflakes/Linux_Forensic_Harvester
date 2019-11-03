@@ -286,13 +286,11 @@ fn process_file_dscriptors(path: &str, root_path: &str, pid: i32) -> std::io::Re
                 .into_iter()
                 .filter_map(|e| e.ok()) {
         let entry: String = resolve_link(d.path())?.to_string_lossy().into();
-        if entry.contains("socket:") {
-            process_net_conn(path, &entry, pid)?;
-        } else if entry.contains("pipe:") {
-            process_open_file(&entry, pid)?;
-        } else {
-
-        }
+        match entry {
+            ref s if s.contains("socket:") => process_net_conn(path, &entry, pid)?,
+            ref s if s.contains("pipe:") => process_open_file(&entry, pid)?,
+            _ => continue
+        };
     }
     Ok(())
 }
@@ -312,7 +310,6 @@ fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<
     let pid = to_int32(sub);
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat"))?, " ");
     let ppid = to_int32(&stat[3]);
-
     TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
                     path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
                     cwd.to_string_lossy().into()).report_log();
@@ -413,11 +410,34 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+// parse cron files
+fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
+    let lines = file_to_vec(path)?;
+    for line in lines {
+        println!("{:?}", line);
+        if line.starts_with("#") { continue }
+        let fields: Vec<&str> = line.splitn(7, ' ').collect();
+        if fields.len() != 7 { continue }
+        let minute = fields[0].to_string();
+        let hour = fields[1].to_string();
+        let day_of_month = fields[2].to_string();
+        let month = fields[3].to_string();
+        let day_of_week = fields[4].to_string();
+        let account_name = fields[5].to_string();
+        let command_line = fields[6].to_string();
+        TxCron::new(pdt.to_string(), "Cron".to_string(), get_now()?, 
+                    path.to_string(), minute, hour, day_of_month, month, 
+                    day_of_week, account_name, command_line).report_log();
+    }
+    Ok(())
+}
+
 // process files and specific files explicitely
 fn process_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     match path {
         "/etc/passwd" => parse_users(pdt, path)?,
         "/etc/group" => parse_groups(pdt, path)?,
+        "/etc/crontab" => parse_cron(pdt, path)?,
         _ => {}
     };
     process_file(&pdt, std::path::Path::new(path), &mut already_seen)?;
