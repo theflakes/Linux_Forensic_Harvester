@@ -30,7 +30,7 @@ use std::os::unix::fs::MetadataExt;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 16] = [
+const WATCH_PATHS: [&str; 20] = [
     "/etc/init.d",
     "/etc/modules",
     "/etc/rc.local",
@@ -41,23 +41,29 @@ const WATCH_PATHS: [&str; 16] = [
     "/lib/modules",
     "/etc/crontab",
     "/etc/cron.d",
+    "/etc/cron.hourly",
+    "/etc/cron.daily",
+    "/etc/cron.weekly",
+    "/etc/cron.monthly",
     "/etc/systemd/system",
     "/usr/lib/systemd/system",
-    "/var/spool/cron/crontabs",
+    "/var/spool/cron",
     "/tmp",
-    "/proc/",
+    "/proc",
     "/root"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 15] = [
+const WATCH_FILES: [&str; 17] = [
     "/etc/passwd",
     "/etc/group",
     "/etc/rc.local",
     "/etc/rc.d/",
-    "/etc/crontab",
-    "/etc/cron.d/",
-    "/var/spool/cron/crontabs/",
     "/usr/lib/systemd/system/",
+    "/etc/cron.hourly",
+    "/etc/cron.daily",
+    "/etc/cron.weekly",
+    "/etc/cron.monthly",
+    "/var/spool/cron",
     "/.bash_profile",
     "/.bashrc",
     "/.bash_history",
@@ -279,7 +285,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
     socket: --> open network connection
     pipe: --> open redirector
 */
-fn process_file_dscriptors(path: &str, root_path: &str, pid: i32) -> std::io::Result<()> {
+fn process_file_descriptors(path: &str, root_path: &str, pid: i32) -> std::io::Result<()> {
     let descriptors = push_file_path(root_path, "/fd");
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
@@ -313,7 +319,7 @@ fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<
     TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
                     path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
                     cwd.to_string_lossy().into()).report_log();
-    process_file_dscriptors(&path, root_path, pid)?;
+    process_file_descriptors(&path, root_path, pid)?;
     Ok(())
 }
 
@@ -414,7 +420,6 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
 fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
     let lines = file_to_vec(path)?;
     for line in lines {
-        println!("{:?}", line);
         if line.starts_with("#") { continue }
         let fields: Vec<&str> = line.splitn(7, ' ').collect();
         if fields.len() != 7 { continue }
@@ -444,10 +449,25 @@ fn process_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> s
     Ok(())
 }
 
+// process cron directories
+fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    for entry in WalkDir::new(path)
+        .max_depth(2)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| !e.file_type().is_dir()) {
+            parse_cron(pdt, &entry.path().to_string_lossy())?;
+            process_file(&pdt, entry.path(), &mut already_seen)?;
+    }
+    Ok(())
+}
+
 // process directories and sub dirs we are interested in
 fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     match path {
-        ref p if p.starts_with("/proc") => examine_procs(&pdt, &path, &mut already_seen)?,
+        "/proc" => examine_procs(&pdt, &path, &mut already_seen)?,
+        "/etc/cron.d" => process_cron(&pdt, path, &mut already_seen)?,
+        "/var/spool/cron" => process_cron(&pdt, path, &mut already_seen)?,
         _ => for entry in WalkDir::new(path)
                     .max_depth(MAX_DIR_DEPTH)
                     .into_iter()
