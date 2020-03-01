@@ -37,6 +37,7 @@ pub fn to_int32(num: &str) -> i32 {
 }
 
 // convert string to i32 or return 0 if fails
+/*
 pub fn to_int16(num: &str) -> i16 {
     let n = match num.parse::<i16>() {
         Ok(i) => i,
@@ -44,6 +45,7 @@ pub fn to_int16(num: &str) -> i16 {
     };
     return n
 }
+*/
 
 // convert string to i8 or return 0 if fails
 pub fn to_int8(num: &str) -> i8 {

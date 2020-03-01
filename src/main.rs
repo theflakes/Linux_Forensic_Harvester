@@ -192,14 +192,6 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
     Ok(())
 }
 
-/*
-    report on network connections for each process
-*/
-fn process_open_file(_path: &str, _pid: i32) -> std::io::Result<()> {
-    
-    Ok(())
-}
-
 // take IPv4 socket and translate it
 fn get_ipv4_port(socket: &str) -> std::io::Result<(String, u16)> {
     let (ip, port) =
@@ -279,13 +271,23 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
 }
 
 /*
+    report on open files for each process
+*/
+fn process_open_file(pdt: &str, path: &str, pid: i32, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    TxProcessFile::new(pdt.to_string(), "ProcessFile".to_string(), get_now()?, 
+                        pid, path.to_string(), path_exists(path)).report_log();
+    process_file(&pdt, std::path::Path::new(path), already_seen)?;
+    Ok(())
+}
+
+/*
     examine file descriptors
     /proc/{PID}/fd
 
     socket: --> open network connection
     pipe: --> open redirector
 */
-fn process_file_descriptors(path: &str, root_path: &str, pid: i32) -> std::io::Result<()> {
+fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let descriptors = push_file_path(root_path, "/fd");
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
@@ -293,8 +295,10 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32) -> std::io::R
                 .filter_map(|e| e.ok()) {
         let entry: String = resolve_link(d.path())?.to_string_lossy().into();
         match entry {
+            ref s if s.contains("anon_inode:") => continue,
             ref s if s.contains("socket:") => process_net_conn(path, &entry, pid)?,
-            ref s if s.contains("pipe:") => process_open_file(&entry, pid)?,
+            ref s if push_file_path(s, "").is_file() => process_open_file(&data_type, &entry, pid, already_seen)?,
+            ref s if s.contains("pipe:") => continue,
             _ => continue
         };
     }
@@ -302,7 +306,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32) -> std::io::R
 }
 
 // gather and report process information via procfs
-fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<()> {
+fn process_process(root_path: &str, bin: std::path::PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline"))?;
     let cwd = resolve_link(&push_file_path(root_path, "/cwd"))?;
@@ -316,10 +320,11 @@ fn process_process(root_path: &str, bin: std::path::PathBuf) -> std::io::Result<
     let pid = to_int32(sub);
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat"))?, " ");
     let ppid = to_int32(&stat[3]);
-    TxProcess::new("".to_string(), "Process".to_string(), get_now()?, 
+    let data_type = "Process".to_string();
+    TxProcess::new("".to_string(), data_type.clone(), get_now()?, 
                     path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
                     cwd.to_string_lossy().into()).report_log();
-    process_file_descriptors(&path, root_path, pid)?;
+    process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
     Ok(())
 }
 
@@ -376,7 +381,7 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
                 match process_file(&pdt, &bin, already_seen) {
                     Ok(f) => f,
                     Err(e) => println!("{}", e)};
-                process_process(&p, bin)?;
+                process_process(&p, bin, already_seen)?;
             }
         };
         thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu

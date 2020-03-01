@@ -235,6 +235,50 @@ impl TxProcess {
     }
 }
 
+// hold process metadata info from procfs
+#[derive(Serialize)]
+pub struct TxProcessFile {
+    #[serde(default = "Process")]
+    pub parent_data_type: String,
+    #[serde(default = "ProcessFile")]
+    pub data_type: String,
+    pub timestamp: String,
+    pub pid: i32,
+    pub path: String,
+    pub exists: bool
+}
+impl TxProcessFile {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            pid: i32,
+            path: String,
+            exists: bool) -> TxProcessFile {
+        TxProcessFile {
+            parent_data_type,
+            data_type,
+            timestamp,
+            pid,
+            path,
+            exists
+        }
+    }
+
+    // convert struct to json
+    fn to_log(&self) -> String {
+        match serde_json::to_string(&self) {
+            Ok(l) => return l,
+            _ => return "".into()
+        };
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        println!("{}", self.to_log());
+    }
+}
+
 // hold local user metadata
 #[derive(Serialize)]
 pub struct TxLocalUser {
