@@ -195,7 +195,7 @@ fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<S
 /*
     report on network connections for each process
 */
-fn process_open_file(path: &str, pid: i32) -> std::io::Result<()> {
+fn process_open_file(_path: &str, _pid: i32) -> std::io::Result<()> {
     
     Ok(())
 }

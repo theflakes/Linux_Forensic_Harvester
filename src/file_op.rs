@@ -102,7 +102,7 @@ pub fn is_hidden(file_path: &std::path::PathBuf) -> bool {
 }
 
 // get handle to a file
-pub fn open_file(file_path: &std::path::Path) -> std::io::Result<(std::fs::File)> {
+pub fn open_file(file_path: &std::path::Path) -> std::io::Result<std::fs::File> {
     match File::open(&file_path) {
         Ok(f) => return Ok(f),
         Err(e) => return Err(e)
@@ -110,7 +110,7 @@ pub fn open_file(file_path: &std::path::Path) -> std::io::Result<(std::fs::File)
 }
 
 // read all file content for examination for interesting strings
-pub fn read_file_string(file: &std::path::Path) -> std::io::Result<(String)> {
+pub fn read_file_string(file: &std::path::Path) -> std::io::Result<String> {
     match fs::read_to_string(file) {
         Ok(f) => Ok(f.replace('\u{0000}', " ").trim().to_string()),  // Unicode nulls are replaced with spaces (look for better solution)
         Err(_e) => Ok("".to_string())
@@ -118,7 +118,7 @@ pub fn read_file_string(file: &std::path::Path) -> std::io::Result<(String)> {
 }
 
 // read in file as byte vector
-pub fn read_file_bytes(mut file: &std::fs::File) -> std::io::Result<(Vec<u8>)> {
+pub fn read_file_bytes(mut file: &std::fs::File) -> std::io::Result<Vec<u8>> {
     let mut buffer = Vec::new();
     match file.read_to_end(&mut buffer) {
         Ok(f) => f,
