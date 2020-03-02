@@ -278,7 +278,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd)).report_log();
-    process_file(&data_type, std::path::Path::new(fd), already_seen)?;
+    process_file(&data_type, std::path::Path::new(path), already_seen)?;
     Ok(())
 }
 
