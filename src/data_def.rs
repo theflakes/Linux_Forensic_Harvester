@@ -244,6 +244,7 @@ pub struct TxProcessFile {
     pub data_type: String,
     pub timestamp: String,
     pub pid: i32,
+    pub link: String,
     pub path: String,
     pub exists: bool
 }
@@ -253,6 +254,7 @@ impl TxProcessFile {
             data_type: String,
             timestamp: String,
             pid: i32,
+            link: String,
             path: String,
             exists: bool) -> TxProcessFile {
         TxProcessFile {
@@ -260,6 +262,7 @@ impl TxProcessFile {
             data_type,
             timestamp,
             pid,
+            link,
             path,
             exists
         }

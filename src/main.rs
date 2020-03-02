@@ -273,10 +273,12 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
 /*
     report on open files for each process
 */
-fn process_open_file(pdt: &str, path: &str, pid: i32, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    TxProcessFile::new(pdt.to_string(), "ProcessFile".to_string(), get_now()?, 
-                        pid, path.to_string(), path_exists(path)).report_log();
-    process_file(&pdt, std::path::Path::new(path), already_seen)?;
+fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    let data_type = "ProcessOpenFile".to_string();
+    TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
+                        pid, fd.to_string(), path.to_string(), 
+                        path_exists(fd)).report_log();
+    process_file(&data_type, std::path::Path::new(fd), already_seen)?;
     Ok(())
 }
 
@@ -292,14 +294,13 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
                 .into_iter()
-                .filter_map(|e| e.ok()) {
+                .filter_map(|e| e.ok()).skip(1) {   // skip the first entry as it's just the "./fd" directory 
         let entry: String = resolve_link(d.path())?.to_string_lossy().into();
         match entry {
-            ref s if s.contains("anon_inode:") => continue,
             ref s if s.contains("socket:") => process_net_conn(path, &entry, pid)?,
-            ref s if push_file_path(s, "").is_file() => process_open_file(&data_type, &entry, pid, already_seen)?,
-            ref s if s.contains("pipe:") => continue,
-            _ => continue
+            _ => match process_open_file(&data_type, &d.path().to_string_lossy(), &entry, pid, already_seen) {
+                Ok(f) => f,
+                Err(_e) => continue }
         };
     }
     Ok(())
