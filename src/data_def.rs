@@ -188,6 +188,7 @@ pub struct TxProcess {
     pub data_type: String,
     pub timestamp: String,
     pub path: String,
+    pub exists: bool,
     pub command_line: String,
     pub pid: i32,
     pub ppid: i32,
@@ -201,6 +202,7 @@ impl TxProcess {
             data_type: String,
             timestamp: String,
             path: String, 
+            exists: bool,
             command_line: String,
             pid: i32, 
             ppid: i32,
@@ -212,6 +214,7 @@ impl TxProcess {
             data_type,
             timestamp,
             path,
+            exists,
             command_line,
             pid,
             ppid,
@@ -240,7 +243,7 @@ impl TxProcess {
 pub struct TxProcessFile {
     #[serde(default = "Process")]
     pub parent_data_type: String,
-    #[serde(default = "ProcessFile")]
+    #[serde(default = "ProcessOpenFile")]
     pub data_type: String,
     pub timestamp: String,
     pub pid: i32,

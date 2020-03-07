@@ -309,6 +309,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
 // gather and report process information via procfs
 fn process_process(root_path: &str, bin: std::path::PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
+    let exists = path_exists(&path);
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline"))?;
     let cwd = resolve_link(&push_file_path(root_path, "/cwd"))?;
     let env = read_file_string(&push_file_path(root_path, "/environ"))?;
@@ -323,7 +324,8 @@ fn process_process(root_path: &str, bin: std::path::PathBuf, already_seen: &mut 
     let ppid = to_int32(&stat[3]);
     let data_type = "Process".to_string();
     TxProcess::new("".to_string(), data_type.clone(), get_now()?, 
-                    path.clone(), cmd, pid, ppid, env, root.to_string_lossy().into(),
+                    path.clone(), exists, cmd, pid, ppid, env, 
+                    root.to_string_lossy().into(),
                     cwd.to_string_lossy().into()).report_log();
     process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
     Ok(())
