@@ -9,7 +9,7 @@ Linux Forensic Harvester
     License: MIT
     Disclaimer: 
         This tool comes with no warranty or support. 
-        If anyone chooses to use it, you accept all responsability and liability.
+        If anyone chooses to use it, you accept all responsibility and liability.
 
 Usage:
   lin_fh [--ip <ip> --port <port>]
