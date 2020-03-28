@@ -22,7 +22,6 @@ mod mutate;
 mod time;
 
 use walkdir::WalkDir;
-use std::thread;
 use std::fs::{self};
 use regex::Regex;
 use {data_def::*, file_op::*, mutate::*, time::*};
@@ -389,7 +388,7 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
                 process_process(&p, bin, already_seen)?;
             }
         };
-        thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
+        sleep();
     }
     Ok(())
 }
@@ -483,7 +482,7 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
                     .into_iter()
                     .filter_map(|e| e.ok()) {
                 process_file(&pdt, entry.path(), &mut already_seen)?;
-                thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
+                sleep();
             },
     }
     Ok(())
@@ -504,7 +503,7 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
             if is_suid || is_sgid {
                 process_file("SuidSgid", &entry.into_path(), already_seen)?;
             }
-            thread::sleep(std::time::Duration::from_millis(1));  // sleep so we aren't chewing up too much cpu
+            sleep();
         }
     }
     Ok(())

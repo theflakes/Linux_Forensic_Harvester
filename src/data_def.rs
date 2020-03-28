@@ -3,10 +3,11 @@ extern crate serde_derive;      // needed for json serialization
 extern crate serde_json;        // needed for json serialization
 extern crate docopt;
 
-use serde_derive::{Serialize, Deserialize};
-use std::io::prelude::*;
-use std::net::TcpStream;
+use serde::Serialize;
+use serde_derive::{Deserialize};
+use std::io::prelude::{Write};
 use docopt::Docopt;
+use std::thread;
 
 pub const USAGE: &'static str = "
 Linux Forensic Harvester
@@ -47,6 +48,42 @@ lazy_static! {
                     .and_then(|d| d.deserialize())
                     .unwrap_or_else(|e| e.exit());
 }
+
+pub fn sleep() {
+    if ARGS.flag_limit {
+        thread::sleep(std::time::Duration::from_millis(1));
+    }
+}
+
+/*
+    Help provided by Yandros on using traits: 
+        https://users.rust-lang.org/t/refactor-struct-fn-with-macro/40093
+*/
+type Str = ::std::borrow::Cow<'static, str>;
+trait Loggable : Serialize {
+    /// convert struct to json
+    fn to_log (self: &'_ Self) -> Str
+    {
+        ::serde_json::to_string(&self)
+            .ok()
+            .map_or("<failed to serialize>".into(), Into::into)
+    }
+    
+    /// convert struct to json and report it out
+    fn write_log (self: &'_ Self)
+    {
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = ::std::net::TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            writeln!(stream, "{}", self.to_log())
+                .expect("Failed to write to server");
+        } else {
+            eprintln!("{}", self.to_log());
+        }
+    }
+}
+impl<T : ?Sized + Serialize> Loggable for T {}
 
 // holds file metadata info
 #[derive(Serialize)]
@@ -112,26 +149,9 @@ impl TxFile {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -164,26 +184,9 @@ impl TxFileContent {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -228,26 +231,9 @@ impl TxLink {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -295,26 +281,9 @@ impl TxProcess {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -351,26 +320,9 @@ impl TxProcessFile {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -412,26 +364,9 @@ impl TxLocalUser {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -464,26 +399,9 @@ impl TxLocalGroup {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -525,26 +443,9 @@ impl TxLoadedModule {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -580,26 +481,9 @@ impl TxMountPoint {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -650,26 +534,9 @@ impl TxNetConn {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
 
@@ -717,25 +584,8 @@ impl TxCron {
         }
     }
 
-    // convert struct to json
-    fn to_log(&self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(l) => return l,
-            _ => return "".into()
-        };
-    }
-
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        if !ARGS.flag_ip.eq("NONE") {
-            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            stream.write(format!("{}{}", self.to_log(), "\n")
-                .as_bytes())
-                .expect("Failed to write to server");
-        } else {
-            println!("{}", self.to_log());
-        }
+        self.write_log()
     }
 }
