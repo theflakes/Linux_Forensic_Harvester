@@ -3,7 +3,7 @@ Harvest Linux forensic data for operational triage of an event.
 
 If you just want to run it, download the "lin_fh" binary.
 
-
+```
 Linux Forensic Harvester
     Author: Brian Kellogg
     License: MIT
@@ -28,7 +28,7 @@ Options:
 Note:
   To capture network output, start a netcat listener on your port of choice.
   Use the -k option with netcat to force netcat to prevent netcat from closing.
-  
+```
 
 ## To do
 * ~~Further procfs parsing~~
