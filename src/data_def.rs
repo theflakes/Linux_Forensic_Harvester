@@ -1,8 +1,52 @@
 extern crate serde;             // needed for json serialization
 extern crate serde_derive;      // needed for json serialization
 extern crate serde_json;        // needed for json serialization
+extern crate docopt;
 
-use serde_derive::{Serialize};
+use serde_derive::{Serialize, Deserialize};
+use std::io::prelude::*;
+use std::net::TcpStream;
+use docopt::Docopt;
+
+pub const USAGE: &'static str = "
+Linux Forensic Harvester
+    Author: Brian Kellogg
+    License: MIT
+    Disclaimer: 
+        This tool comes with no warranty or support. 
+        If anyone chooses to use it, you accept all responsability and liability.
+
+Usage:
+  lin_fh [--ip <ip> --port <port>]
+  lin_fh [--ip <ip> --port <port>] [--limit]
+  lin_fh --limit
+  lin_fh --help
+  lin_fh --version
+
+Options:
+  -h, --help            Show this screen
+  -v, --version         Show version
+  -i, --ip <ip>         IP address to send output to [default: NONE]
+  -p, --port <port>     Destination port to send output to [default: 80]
+  -l, --limit           Limit CPU use
+
+Note:
+  To capture network output, start a netcat listener on your port of choice.
+  Use the -k option with netcat to force netcat to prevent netcat from closing.
+";
+
+#[derive(Debug, Deserialize)]
+struct Args {
+    flag_ip: String,
+    flag_port: u16,
+    flag_limit: bool
+}
+
+lazy_static! { 
+    static ref ARGS: Args = Docopt::new(USAGE)
+                    .and_then(|d| d.deserialize())
+                    .unwrap_or_else(|e| e.exit());
+}
 
 // holds file metadata info
 #[derive(Serialize)]
@@ -78,7 +122,16 @@ impl TxFile {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -121,7 +174,16 @@ impl TxFileContent {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -176,7 +238,16 @@ impl TxLink {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -234,7 +305,16 @@ impl TxProcess {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -281,7 +361,16 @@ impl TxProcessFile {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -333,7 +422,16 @@ impl TxLocalUser {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -376,7 +474,16 @@ impl TxLocalGroup {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -428,7 +535,16 @@ impl TxLoadedModule {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -474,7 +590,16 @@ impl TxMountPoint {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -535,7 +660,16 @@ impl TxNetConn {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
 
@@ -593,6 +727,15 @@ impl TxCron {
 
     // convert struct to json and report it out
     pub fn report_log(&self) {
-        println!("{}", self.to_log());
+        if !ARGS.flag_ip.eq("NONE") {
+            let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
+            let mut stream = TcpStream::connect(socket)
+                .expect("Could not connect to server");
+            stream.write(format!("{}{}", self.to_log(), "\n")
+                .as_bytes())
+                .expect("Failed to write to server");
+        } else {
+            println!("{}", self.to_log());
+        }
     }
 }
