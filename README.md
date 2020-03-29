@@ -38,7 +38,7 @@ Note:
 * ~~Report on local users, /etc/passwd, and group, /etc/groups, membership~~
 * ~~Identification of "interesting" log entries~~
 * ~~Output via network comms~~
-* Web shell detection
+* ~~Web shell detection~~
 * ~~Shell histories~~
 * ~~Setuid / setgid~~
 * Traps
