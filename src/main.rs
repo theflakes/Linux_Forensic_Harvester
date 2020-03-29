@@ -53,7 +53,7 @@ const WATCH_PATHS: [&str; 21] = [
     "/var/log"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 20] = [
+const WATCH_FILES: [&str; 23] = [
     "/etc/passwd",
     "/etc/group",
     "/etc/rc.local",
@@ -73,6 +73,9 @@ const WATCH_FILES: [&str; 20] = [
     "/root/",
     "/var/log/",
     "/var/www/",
+    "/usr/share/nginx/www/",
+    "/usr/share/nginx/html/",
+    "/usr/local/var/www/html/",
     "/srv/"
     ];
 
