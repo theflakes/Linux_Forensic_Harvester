@@ -119,7 +119,7 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
                     # PHP / Perl / JSP possible web shells often used functions
                     eval\(|exec(?:\(|\.)|passthru|base64(?:_decode)|system|p?(?:roc_)?open|                        
                     preg_replace|`.{2,50}`|show_source|parse_ini_file|assert|gzdeflate|
-                    str_rot13|StreamConnector|start\(
+                    str_rot13|StreamConnector|start\(|
 
                     # ASP possible web shells often used functions
                     creatobject|\.run
