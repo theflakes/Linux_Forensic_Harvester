@@ -53,7 +53,7 @@ const WATCH_PATHS: [&str; 21] = [
     "/var/log"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 18] = [
+const WATCH_FILES: [&str; 20] = [
     "/etc/passwd",
     "/etc/group",
     "/etc/rc.local",
@@ -71,7 +71,9 @@ const WATCH_FILES: [&str; 18] = [
     "/.lesshst",
     "/.viminfo",
     "/root/",
-    "/var/log"
+    "/var/log/",
+    "/var/www/",
+    "/srv/"
     ];
 
 
@@ -109,7 +111,16 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
                 (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
                 [a-z0-9]{300}|                                                                                      # basic encoding
                 (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}|                                                    # shell code
-                [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}                                                        # email
+                [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}|                                                       # email
+                (?:                                                                                                 # Web shells
+                    # PHP / Perl / JSP possible web shells often used functions
+                    eval\(|exec(?:\(|\.)|passthru|base64(?:_decode)|system|p?(?:roc_)?open|                        
+                    preg_replace|`.{2,50}`|show_source|parse_ini_file|assert|gzdeflate|
+                    str_rot13|StreamConnector|start\(
+
+                    # ASP possible web shells often used functions
+                    creatobject|\.run
+                )
             ).*$)                                                                    
         "#).expect("bad regex");
     }
