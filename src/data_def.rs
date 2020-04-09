@@ -79,7 +79,7 @@ trait Loggable : Serialize {
             writeln!(stream, "{}", self.to_log())
                 .expect("Failed to write to server");
         } else {
-            eprintln!("{}", self.to_log());
+            println!("{}", self.to_log());
         }
     }
 }

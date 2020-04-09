@@ -29,7 +29,7 @@ use std::os::unix::fs::MetadataExt;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 21] = [
+const WATCH_PATHS: [&str; 26] = [
     "/etc/init.d",
     "/etc/modules",
     "/etc/rc.local",
@@ -50,7 +50,12 @@ const WATCH_PATHS: [&str; 21] = [
     "/tmp",
     "/proc",
     "/root",
-    "/var/log"
+    "/var/log",
+    "/var/www",
+    "/usr/share/nginx/www",
+    "/usr/share/nginx/html",
+    "/usr/local/var/www/html",
+    "/srv"
     ];
 // files whose content we want to look at for interesting strings
 const WATCH_FILES: [&str; 23] = [

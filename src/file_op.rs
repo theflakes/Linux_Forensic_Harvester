@@ -14,6 +14,8 @@ use libc::{S_IRGRP, S_IROTH, S_IRUSR, // see: https://www.gnu.org/software/libc/
            S_IXGRP, S_IXOTH, S_IXUSR, 
            S_ISUID, S_ISGID, S_ISVTX};
 
+const MAX_FILE_SIZE: u64 = 256000000;
+
 // return file mime type string
 pub fn get_filetype(buffer: &mut Vec<u8>) -> String {
     tree_magic::from_u8(buffer)
@@ -188,10 +190,18 @@ pub fn get_parent_dir(path: &std::path::Path) -> &std::path::Path {
 
 // get metadata for the file's content (md5, mime_type)
 pub fn get_file_content_info(file: &std::fs::File) -> std::io::Result<(String, String)> {
-    let mut buffer = read_file_bytes(file)?;
-    let md5 = format!("{:x}", md5::compute(&buffer)).to_lowercase();
-    let mime_type = get_filetype(&mut buffer);
-    drop(buffer);
+    let mut md5 = "".to_string();
+    let mut mime_type ="".to_string();
+    if file.metadata()?.len() != 0 { // don't bother with opening empty files
+        if file.metadata()?.len() <= MAX_FILE_SIZE { // don't hash very large files
+            let mut buffer = read_file_bytes(file)?;
+            md5 = format!("{:x}", md5::compute(&buffer)).to_lowercase();
+            mime_type = get_filetype(&mut buffer);
+            drop(buffer);
+        } 
+    } else {
+        md5 = "d41d8cd98f00b204e9800998ecf8427e".to_string(); // md5 of empty file
+    }
     Ok((md5, mime_type))
 }
 
