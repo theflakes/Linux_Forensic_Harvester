@@ -34,6 +34,8 @@ Options:
 Note:
   To capture network output, start a netcat listener on your port of choice.
   Use the -k option with netcat to prevent netcat from closing after a TCP connection is closed.
+
+  Files larger than 256MB will not be hashed.
 ";
 
 #[derive(Debug, Deserialize)]
