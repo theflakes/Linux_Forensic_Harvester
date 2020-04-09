@@ -27,7 +27,9 @@ Options:
 
 Note:
   To capture network output, start a netcat listener on your port of choice.
-  Use the -k option with netcat to prevent netcat from closing.
+  Use the -k option with netcat to prevent netcat from closing.  
+  
+  Files larger than 256MB will not be hashed.
 ```
 
 ## To do
