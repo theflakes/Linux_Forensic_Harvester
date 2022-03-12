@@ -6,7 +6,7 @@ use chrono::DateTime;
 
 // get date into the format we need
 pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
-    Ok(time.format("%Y-%m-%d %H:%M:%S.%3f").to_string())
+    Ok(time.format("%Y-%m-%dT%H:%M:%S.%3fZ").to_string())
 }
 
 // convert string to i128 or return 0 if fails
