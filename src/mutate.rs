@@ -13,7 +13,7 @@ pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
 pub fn to_int128(num: &str) -> i128 {
     let n = match num.parse::<i128>() {
         Ok(i) => i,
-        _ => 0
+        Err(_e) => 0
     };
     return n
 }
@@ -22,7 +22,7 @@ pub fn to_int128(num: &str) -> i128 {
 pub fn to_int64(num: &str) -> i64 {
     let n = match num.parse::<i64>() {
         Ok(i) => i,
-        _ => 0
+        Err(_e) => 0
     };
     return n
 }
@@ -31,7 +31,7 @@ pub fn to_int64(num: &str) -> i64 {
 pub fn to_int32(num: &str) -> i32 {
     let n = match num.parse::<i32>() {
         Ok(i) => i,
-        _ => 0
+        Err(_e) => 0
     };
     return n
 }
@@ -41,7 +41,7 @@ pub fn to_int32(num: &str) -> i32 {
 pub fn to_int16(num: &str) -> i16 {
     let n = match num.parse::<i16>() {
         Ok(i) => i,
-        _ => 0
+        Err(_e) => 0
     };
     return n
 }
@@ -51,7 +51,7 @@ pub fn to_int16(num: &str) -> i16 {
 pub fn to_int8(num: &str) -> i8 {
     let n = match num.parse::<i8>() {
         Ok(i) => i,
-        _ => 0
+        Err(_e) => 0
     };
     return n
 }
