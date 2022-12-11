@@ -26,6 +26,7 @@ use std::fs::{self};
 use regex::Regex;
 use {data_def::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
+use nix::unistd::Uid;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
@@ -528,8 +529,15 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
 
+fn is_root() {
+    if !Uid::effective().is_root() {
+        println!("[WARNING] - Not running as root, cannot collect all telemetry.");
+    }
+}
+
 // let's start this thing
 fn main() -> std::io::Result<()> {
+    is_root();
     let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops
 
     for path in WATCH_PATHS.iter() {
