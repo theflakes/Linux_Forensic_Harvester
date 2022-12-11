@@ -221,7 +221,7 @@ fn get_ipv4_port(socket: &str) -> std::io::Result<(String, u16)> {
                 u32::from_str_radix(s, 0x10)
                     .expect("hex number")
             })
-            .collect::<::arrayvec::ArrayVec<[_; 2]>>()
+            .collect::<::arrayvec::ArrayVec<u32, 2>>()
             [..]
         {
             | [ip, port] => (std::net::Ipv4Addr::from(u32::from_be(ip)).to_string(), port as u16),
@@ -238,10 +238,10 @@ fn get_ipv6_port(socket: &str) -> std::io::Result<(String, u16)> {
                 u128::from_str_radix(s, 0x10)
                     .expect("hex number")
             })
-            .collect::<::arrayvec::ArrayVec<[_; 2]>>()
+            .collect::<::arrayvec::ArrayVec<u128, 2>>()
             [..]
         {
-            | [ip, port] => (u128_swap_u32s_then_to_ipv6(u128::from(ip))?.to_string(), port as u16),
+            | [ip, port] => (u128_to_ipv6(u128::from(ip))?.to_string(), port as u16),
             | _          => panic!("Invalid input!"),
         };
     return Ok((ip, port));
