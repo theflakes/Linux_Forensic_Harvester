@@ -1,5 +1,4 @@
 extern crate chrono;            // DateTime manipulation
-extern crate arrayvec;
 
 use chrono::offset::Utc;
 use chrono::DateTime;
@@ -62,9 +61,11 @@ pub fn to_int8(num: &str) -> i8 {
         Therefore have to break the 128bit value into 4 dwords, reverse them and recombine
     See: https://users.rust-lang.org/t/convert-hex-socket-notation-to-ip-and-port/33858/8
 */
-pub fn u128_to_ipv6 (n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
-    let u8s = n.to_be_bytes();
-    Ok(::std::net::Ipv6Addr::from(u8s))
+pub fn u128_to_ipv6 (mut n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
+    unsafe { &mut *(&mut n as *mut u128 as *mut [u32; 4]) }
+        .iter_mut()
+        .for_each(|n: &mut u32| *n = n.swap_bytes());
+    Ok(::std::net::Ipv6Addr::from(n))
 }
 
 // translate hex state to human readable
