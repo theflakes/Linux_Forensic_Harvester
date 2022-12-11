@@ -508,11 +508,18 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
     Ok(())
 }
 
-// find SUID and SGID files
+/*
+ find SUID and SGID files
+ Weird issue getting hung on a /proc dir on my box: /proc/4635/task/4635/net
+    ls: reading directory '/proc/4635/task/4635/net': Invalid argument
+    total 0
+*/
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
+                    .filter_entry(|e| WATCH_PATHS.iter().any(|p| !e.path().to_string_lossy().starts_with(p)))
                     .filter_map(|e| e.ok()) {
+        println!("{:?}", entry);
         let md = match entry.metadata() {
             Ok(d) => d,
             Err(_e) => continue     // catch any errors so we can finish searching all dirs
@@ -521,7 +528,7 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
             let mode = md.mode();
             let (is_suid, is_sgid) = is_suid_sgid(mode);
             if is_suid || is_sgid {
-                process_file("SuidSgid", &entry.into_path(), already_seen)?;
+                process_file("SuidSgid", entry.path(), already_seen)?;
             }
             sleep();
         }
@@ -553,6 +560,6 @@ fn main() -> std::io::Result<()> {
                 Err(e) => println!("{}", e),};
         }
     }
-    find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
+    //find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
     Ok(())
 }
