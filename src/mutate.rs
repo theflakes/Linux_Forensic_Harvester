@@ -9,30 +9,30 @@ pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
 }
 
 // convert string to i128 or return 0 if fails
-pub fn to_int128(num: &str) -> Result<i128> {
+pub fn to_int128(num: &str) -> std::io::Result<i128> {
     let n = match num.parse::<i128>() {
         Ok(i) => i,
         Err(_e) => 0
     };
-    return n
+    Ok(n)
 }
 
 // convert string to i64 or return 0 if fails
-pub fn to_int64(num: &str) -> Result<i64> {
+pub fn to_int64(num: &str) -> std::io::Result<i64> {
     let n = match num.parse::<i64>() {
         Ok(i) => i,
         Err(_e) => 0
     };
-    return n
+    Ok(n)
 }
 
 // convert string to i32 or return 0 if fails
-pub fn to_int32(num: &str) -> Result<i32> {
+pub fn to_int32(num: &str) -> std::io::Result<i32> {
     let n = match num.parse::<i32>() {
         Ok(i) => i,
         Err(_e) => 0
     };
-    return n
+    Ok(n)
 }
 
 // convert string to i32 or return 0 if fails
@@ -47,12 +47,12 @@ pub fn to_int16(num: &str) -> i16 {
 */
 
 // convert string to i8 or return 0 if fails
-pub fn to_int8(num: &str) -> Result<i8> {
+pub fn to_int8(num: &str) -> std::io::Result<i8> {
     let n = match num.parse::<i8>() {
         Ok(i) => i,
         Err(_e) => 0
     };
-    return n
+    Ok(n)
 }
 
 /*
@@ -69,33 +69,33 @@ pub fn u128_to_ipv6 (mut n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
 }
 
 // translate hex state to human readable
-pub fn get_tcp_state(state: &str) -> Result<String> {
+pub fn get_tcp_state(state: &str) -> std::io::Result<String> {
     match state {
-        "01" => return "TCP_ESTABLISHED".to_string(),
-        "02" => return "TCP_SYN_SENT".to_string(),
-        "03" => return "TCP_SYN_RECV".to_string(),
-        "04" => return "TCP_FIN_WAIT1".to_string(),
-        "05" => return "TCP_FIN_WAIT2".to_string(),
-        "06" => return "TCP_TIME_WAIT".to_string(),
-        "07" => return "TCP_CLOSE".to_string(),
-        "08" => return "TCP_CLOSE_WAIT".to_string(),
-        "09" => return "TCP_LAST_ACK".to_string(),
-        "0A" => return "TCP_LISTEN".to_string(),
-        "0B" => return "TCP_CLOSING".to_string(),    /* Now a valid state */
-        "0C" => return "TCP_MAX_STATES".to_string(),  /* Leave at the end! */
-        _ => return "UNKNOWN".to_string()
+        "01" => return Ok("TCP_ESTABLISHED".to_string()),
+        "02" => return Ok("TCP_SYN_SENT".to_string()),
+        "03" => return Ok("TCP_SYN_RECV".to_string()),
+        "04" => return Ok("TCP_FIN_WAIT1".to_string()),
+        "05" => return Ok("TCP_FIN_WAIT2".to_string()),
+        "06" => return Ok("TCP_TIME_WAIT".to_string()),
+        "07" => return Ok("TCP_CLOSE".to_string()),
+        "08" => return Ok("TCP_CLOSE_WAIT".to_string()),
+        "09" => return Ok("TCP_LAST_ACK".to_string()),
+        "0A" => return Ok("TCP_LISTEN".to_string()),
+        "0B" => return Ok("TCP_CLOSING".to_string()),    /* Now a valid state */
+        "0C" => return Ok("TCP_MAX_STATES".to_string()),  /* Leave at the end! */
+        _ => return Ok("UNKNOWN".to_string())
     }
 }
 
 // split string on string and return vec
-pub fn split_to_vec(source: &str, split_by: &str) -> Result<Vec<String>> {
-    source.split(split_by).map(|s| s.to_string()).collect()
+pub fn split_to_vec(source: &str, split_by: &str) -> std::io::Result<Vec<String>> {
+    Ok(source.split(split_by).map(|s| s.to_string()).collect())
 }
 
 // convert a string to a Rust file path
-pub fn push_file_path(path: &str, suffix: &str) -> Result<std::path::PathBuf> {
+pub fn push_file_path(path: &str, suffix: &str) -> std::io::Result<std::path::PathBuf> {
     let mut p = path.to_owned();
     p.push_str(suffix);
     let r = std::path::Path::new(&p);
-    return r.to_owned()
+    Ok(r.to_owned())
 }
