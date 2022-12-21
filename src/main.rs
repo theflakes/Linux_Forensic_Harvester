@@ -514,6 +514,7 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
     ls: reading directory '/proc/4635/task/4635/net': Invalid argument
     total 0
 */
+/*
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
@@ -535,6 +536,7 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     }
     Ok(())
 }
+*/
 
 fn is_root() {
     if !Uid::effective().is_root() {

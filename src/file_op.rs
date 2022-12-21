@@ -131,7 +131,7 @@ pub fn read_file_bytes(mut file: &std::fs::File) -> std::io::Result<Vec<u8>> {
 
 // return the path that a symlink points to
 pub fn resolve_link(link_path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    let parent_dir = get_parent_dir(link_path);
+    let parent_dir = get_parent_dir(link_path)?;
     match std::env::set_current_dir(parent_dir) {
         Ok(f) => f,
         Err(_e) => return Ok(std::path::PathBuf::new())
@@ -181,10 +181,10 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
 }
 
 // find the parent directory of a given dir or file
-pub fn get_parent_dir(path: &std::path::Path) -> &std::path::Path {
+pub fn get_parent_dir(path: &std::path::Path) -> std::io::Result<&std::path::Path> {
     match path.parent() {
-        Some(d) => return d,
-        None => return path
+        Some(d) => return Ok(d),
+        None => return Ok(path)
     };
 }
 
