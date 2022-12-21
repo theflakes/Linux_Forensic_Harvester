@@ -540,8 +540,9 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
 
 fn is_root() {
     if !Uid::effective().is_root() {
-        println!("[WARNING] - Not running as root, cannot collect all telemetry.");
-    }
+        println!("{}", USAGE);
+        std::process::exit(1);
+     }
 }
 
 // let's start this thing

@@ -17,16 +17,16 @@ Linux Forensic Harvester
         This tool comes with no warranty or support. 
         If anyone chooses to use it, you accept all responsibility and liability.
 
+This tool must be run as root.
+
 Usage:
   lin_fh [--ip <ip> --port <port>]
   lin_fh [--ip <ip> --port <port>] [--limit]
   lin_fh --limit
   lin_fh --help
-  lin_fh --version
 
 Options:
   -h, --help            Show this screen
-  -v, --version         Show version
   -i, --ip <ip>         IP address to send output to [default: NONE]
   -p, --port <port>     Destination port to send output to [default: 80]
   -l, --limit           Limit CPU use
@@ -46,6 +46,7 @@ struct Args {
     flag_port: u16,
     flag_limit: bool
 }
+
 
 lazy_static! { 
     static ref ARGS: Args = Docopt::new(USAGE)
