@@ -267,7 +267,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
     if tmp.len() > 1 {
         let inode = tmp[1].replace("]", "");
         for f in NET_CONNS.iter() {
-            let conns = push_file_path("/proc/net/", f);
+            let conns = push_file_path("/proc/net/", f)?;
             let file_contents = read_file_string(&conns)?;
             let search = "(?mi)^.+ ".to_owned() + &inode + " .+$";
             let re = Regex::new(&search).expect("bad regex");
@@ -279,9 +279,9 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     let (local_ip, local_port) = get_ip_port(fields[1].trim())?;
                     let (remote_ip, remote_port) = get_ip_port(fields[2].trim())?;
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
-                                    path.to_string(), pid, to_int32(fields[7]), local_ip, 
-                                    local_port, remote_ip, remote_port, get_tcp_state(fields[3]), 
-                                    to_int128(&inode)).report_log();
+                                    path.to_string(), pid, to_int32(fields[7])?, local_ip, 
+                                    local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
+                                    to_int128(&inode)?).report_log();
                 }
                 matched = true;
             }
@@ -311,7 +311,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     pipe: --> open redirector
 */
 fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    let descriptors = push_file_path(root_path, "/fd");
+    let descriptors = push_file_path(root_path, "/fd")?;
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
                 .into_iter()
@@ -331,18 +331,18 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
 fn process_process(root_path: &str, bin: std::path::PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let exists = path_exists(&path);
-    let cmd = read_file_string(&push_file_path(root_path, "/cmdline"))?;
-    let cwd = resolve_link(&push_file_path(root_path, "/cwd"))?;
-    let env = read_file_string(&push_file_path(root_path, "/environ"))?;
-    let root = resolve_link(&push_file_path(root_path, "/root"))?;
-    let subs = split_to_vec(root_path, "/");
+    let cmd = read_file_string(&push_file_path(root_path, "/cmdline")?)?;
+    let cwd = resolve_link(&push_file_path(root_path, "/cwd")?)?;
+    let env = read_file_string(&push_file_path(root_path, "/environ")?)?;
+    let root = resolve_link(&push_file_path(root_path, "/root")?)?;
+    let subs = split_to_vec(root_path, "/")?;
     let sub = match subs.iter().next_back() {
         Some(s) => s,
         None => ""
     };
-    let pid = to_int32(sub);
-    let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat"))?, " ");
-    let ppid = to_int32(&stat[3]);
+    let pid = to_int32(sub)?;
+    let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat")?)?, " ")?;
+    let ppid = to_int32(&stat[3])?;
     let data_type = "Process".to_string();
     TxProcess::new("".to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, cmd, pid, ppid, env, 
@@ -358,8 +358,8 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
     for line in lines {
         let values: Vec<&str> = line.split(" ").collect();
         let name = values[0].to_string();
-        let size = to_int64(values[1]);
-        let loaded = to_int8(values[2]);
+        let size = to_int64(values[1])?;
+        let loaded = to_int8(values[2])?;
         let mut dependencies = values[3].replace(",", ", ").trim().to_string();
         if dependencies.ends_with(",") { dependencies.pop(); }
         let state = values[4].to_string();
@@ -401,7 +401,7 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
             "/proc/mounts" => parse_mounts(pdt, &p)?,
             _ => {
                 if !PID.is_match(&p) { continue };
-                let bin = push_file_path(p, "/exe");
+                let bin = push_file_path(p, "/exe")?;
                 match process_file(&pdt, &bin, already_seen) {
                     Ok(f) => f,
                     Err(e) => println!("{}", e)};
@@ -419,8 +419,8 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
     for line in lines {
         let values: Vec<&str> = line.split(":").collect();
         let account_name = values[0].to_string();
-        let uid = to_int32(values[2]);
-        let gid = to_int32(values[3]);
+        let uid = to_int32(values[2])?;
+        let gid = to_int32(values[3])?;
         let description = values[4].to_string();
         let home_directory = values[5].to_string();
         let shell = values[6].to_string();
