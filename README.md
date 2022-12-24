@@ -54,11 +54,6 @@ Build command: cargo build --release
 Post build: Run "strip" on compiled binary to drastically reduce its size.
 * e.g. "strip lin_fh"
 
-## Why this tool
-I am writing this in Rust for two reasons:
-* I want to learn and get better at programming in Rust.
-* I find that programming forensics tools helps me learn and retain things better.
-
 ## Output format
 Output is in Json for import into ELK or any other Json indexer. I may add other log formats.
 
@@ -67,17 +62,24 @@ No configuration files are currently included. Everything is compiled in to ache
 
 ## About the logs
 Information gathered on:
-- File
+- Cron jobs
+- Drive mounts
+- Groups
 - Interesting File Content
+-- Encoded strings
+-- File
+-- File paths
+-- IPs (v4 and v6)
+-- Shell code
+-- UNCs
+-- URLs
+-- Web shells
 - Link files
+- Loaded Kernel Modules
+- Network connections (via procfs)
 - Processes (via procfs)
 - Process file (file of the process on disk)
 - Users
-- Groups
-- Loaded Kernel Modules
-- Drive mounts
-- Network connections (via procfs)
-- Cron jobs
 
 Some file contents are examined looking for other interesting strings. For example, if another file is referenced within a file, that file's metadata will also be retreived. Other strings of interest found in file contents are reported: IPs, file paths, URLs, shellcode, Base64 and misc encodings, and UNC paths.  
   
