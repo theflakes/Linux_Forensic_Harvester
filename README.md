@@ -66,7 +66,20 @@ Output is in Json for import into ELK or any other Json indexer. I may add other
 No configuration files are currently included. Everything is compiled in to acheive easier remote use of the tool. Just copy file to host and run. Pipe / redirect the output with standard Linux tools. At some point I will probably add a network send option.
 
 ## About the logs
-Presently only directory and file metadata are examined. Some file contents are examined looking for other interesting strings. For example, if another file is referenced within a file, that file's metadata will also be retreived. Other strings of interest found in file contents are reported: IPs, file paths, URLs, shellcode, Base64 and misc encodings, and UNC paths.  
+Information gathered on:
+- File
+- Interesting File Content
+- Link files
+- Processes (via procfs)
+- Process file (file of the process on disk)
+- Users
+- Groups
+- Loaded Kernel Modules
+- Drive mounts
+- Network connections (via procfs)
+- Cron jobs
+
+Some file contents are examined looking for other interesting strings. For example, if another file is referenced within a file, that file's metadata will also be retreived. Other strings of interest found in file contents are reported: IPs, file paths, URLs, shellcode, Base64 and misc encodings, and UNC paths.  
   
 Process information is retreived via ProcFS parsing.  
   
