@@ -66,14 +66,14 @@ Information gathered on:
 - Drive mounts
 - Groups
 - Interesting File Content
--- Encoded strings
--- File
--- File paths
--- IPs (v4 and v6)
--- Shell code
--- UNCs
--- URLs
--- Web shells
+  - Encoded strings
+  - File
+  - File paths
+  - IPs (v4 and v6)
+  - Shell code
+  - UNCs
+  - URLs
+  - Web shells
 - Link files
 - Loaded Kernel Modules
 - Network connections (via procfs)
