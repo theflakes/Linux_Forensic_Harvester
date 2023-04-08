@@ -572,6 +572,8 @@ fn main() -> std::io::Result<()> {
                 Err(_e) => continue};
         }
     }
-    find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
+    if ARGS.flag_suidsgid {
+        find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
+    }
     Ok(())
 }

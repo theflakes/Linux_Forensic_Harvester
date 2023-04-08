@@ -7,8 +7,8 @@ If you just want to run it, download the "lin_fh" binary.
 Linux Forensic Harvester
     Author: Brian Kellogg
     License: MIT
-    Disclaimer:
-        This tool comes with no warranty or support.
+    Disclaimer: 
+        This tool comes with no warranty or support. 
         If anyone chooses to use it, you accept all responsibility and liability.
 
 If not run as root, not all telemetry can be harvested.
@@ -16,18 +16,20 @@ If not run as root, not all telemetry can be harvested.
 Usage:
   lin_fh [--ip <ip> --port <port>]
   lin_fh [--ip <ip> --port <port>] [--limit]
+  lin_fh --suidsgid [--limit]
   lin_fh --limit
   lin_fh --help
 
 Options:
-  -h, --help            Show this screen
+  -h, --help            Print help
   -i, --ip <ip>         IP address to send output to [default: NONE]
   -p, --port <port>     Destination port to send output to [default: 80]
   -l, --limit           Limit CPU use
+  -s, --suidsgid        Search for suid and sgid files
 
 Note:
   If not run as root some telemetry cannot be harvested.
-
+  
   To capture network output, start a netcat listener on your port of choice.
   Use the -k option with netcat to prevent netcat from closing after a TCP connection is closed.
 
