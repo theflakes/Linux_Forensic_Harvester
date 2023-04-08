@@ -59,7 +59,7 @@ const WATCH_PATHS: [&str; 26] = [
     "/srv"
     ];
 // files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 23] = [
+const WATCH_FILES: [&str; 32] = [
     "/etc/passwd",
     "/etc/group",
     "/etc/rc.local",
@@ -72,7 +72,16 @@ const WATCH_FILES: [&str; 23] = [
     "/var/spool/cron",
     "/.bash_profile",
     "/.bashrc",
+    "/.zshrc",
     "/.bash_history",
+    "/.ash_history",
+    "/fish_history",
+    "/config.fish",
+    "/.zsh_history",
+    "/.history",
+    "/.sh_history",
+    "/.profile",
+    "/.cshrc",
     "/.bash_logout",
     "/.lesshst",
     "/.viminfo",
