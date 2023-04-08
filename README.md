@@ -11,7 +11,7 @@ Linux Forensic Harvester
         This tool comes with no warranty or support.
         If anyone chooses to use it, you accept all responsibility and liability.
 
-This tool must be run as root.
+If not run as root, not all telemetry can be harvested.
 
 Usage:
   lin_fh [--ip <ip> --port <port>]
@@ -34,6 +34,13 @@ Note:
   Files larger than 256MB will not be hashed.
 ```
 
+## To compile
+```
+sudo apt install musl-tools
+rustup target add x86_64-unknown-linux-musl
+cargo build --release
+```
+
 ## To do
 * ~~Further procfs parsing~~
 * ~~Expand on interesting strings to capture in "FileContent" data_type~~
@@ -48,11 +55,6 @@ Note:
 * Traps
 * Document parent and child data type relation
 * ...
-
-## Building tool
-Build command: cargo build --release  
-Post build: Run "strip" on compiled binary to drastically reduce its size.
-* e.g. "strip lin_fh"
 
 ## Output format
 Output is in Json for import into ELK or any other Json indexer. I may add other log formats.

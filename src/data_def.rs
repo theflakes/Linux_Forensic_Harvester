@@ -17,7 +17,7 @@ Linux Forensic Harvester
         This tool comes with no warranty or support. 
         If anyone chooses to use it, you accept all responsibility and liability.
 
-This tool must be run as root.
+If not run as root, not all telemetry can be harvested.
 
 Usage:
   lin_fh [--ip <ip> --port <port>]

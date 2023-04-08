@@ -1,0 +1,17 @@
+#
+# Statically Link so that C++ runtime is not required for running the binary
+#
+[build]
+target = "x86_64-unknown-linux-musl"
+
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "target-feature=+crt-static", "-Aunused"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "-Aunused"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "-Aunused"]
+
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "target-feature=+crt-static", "-Aunused", "-C", "relocation-model=static", "-C", "strip=symbols"]

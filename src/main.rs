@@ -26,7 +26,7 @@ use std::fs::{self};
 use regex::Regex;
 use {data_def::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
-use nix::unistd::Uid;
+//use nix::unistd::Uid;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
@@ -514,13 +514,12 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
     ls: reading directory '/proc/4635/task/4635/net': Invalid argument
     total 0
 */
-/*
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
                     .filter_entry(|e| WATCH_PATHS.iter().any(|p| !e.path().to_string_lossy().starts_with(p)))
                     .filter_map(|e| e.ok()) {
-        println!("{:?}", entry);
+        if entry.path().starts_with("/proc/") { continue; } // ignore proc directory
         let md = match entry.metadata() {
             Ok(d) => d,
             Err(_e) => continue     // catch any errors so we can finish searching all dirs
@@ -536,18 +535,19 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     }
     Ok(())
 }
-*/
 
+/*
 fn is_root() {
     if !Uid::effective().is_root() {
         println!("{}", USAGE);
         std::process::exit(1);
      }
 }
+*/
 
 // let's start this thing
 fn main() -> std::io::Result<()> {
-    is_root();
+    //is_root();
     let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops
 
     for path in WATCH_PATHS.iter() {
@@ -556,13 +556,13 @@ fn main() -> std::io::Result<()> {
         if md.is_dir() {  // if this is a directory we have more to do
             match process_directory("", path, &mut already_seen) {
                 Ok(f) => f,
-                Err(e) => println!("{}", e),};
+                Err(_e) => continue};
         } else {
             match process_files("", path, &mut already_seen) {
                 Ok(f) => f,
-                Err(e) => println!("{}", e),};
+                Err(_e) => continue};
         }
     }
-    //find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
+    find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
     Ok(())
 }
