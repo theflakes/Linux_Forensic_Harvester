@@ -16,6 +16,7 @@ If not run as root, not all telemetry can be harvested.
 Usage:
   lin_fh [--ip <ip> --port <port>]
   lin_fh [--ip <ip> --port <port>] [--limit]
+  lin_fh [--ip <ip> --port <port>] [--suidsgid] [--limit]
   lin_fh --suidsgid [--limit]
   lin_fh --limit
   lin_fh --help
