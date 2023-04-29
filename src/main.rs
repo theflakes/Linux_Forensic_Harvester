@@ -554,12 +554,13 @@ fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result
                     match entry {
                         Ok(entry) => {
                             let path = entry.path();
-                            if path.is_dir() && !entry.file_type()?.is_symlink {
+                            println!("{:?}", path);
+                            if path.is_dir() && !entry.file_type()?.is_symlink() {
                                 if path.starts_with("/proc/") 
                                     || path.starts_with("/dev/fd/") { continue; }
                                 find_suid_sgid(&path, already_seen)?;
                             } else {
-                                let md = match entry.metadata() {
+                                let md = match path.metadata() {
                                     Ok(d) => d,
                                     Err(_e) => continue     // catch any errors so we can finish searching all dirs
                                     };
