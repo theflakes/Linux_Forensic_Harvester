@@ -521,11 +521,11 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
     Ok(())
 }
 
-fn skip(path: &str) -> bool {
-    let starts_with = ((WATCH_PATHS.iter().any(|p| path.starts_with(p))) 
+fn str_starts_with(path: &str) -> bool {
+    let does_start_with = ((WATCH_PATHS.iter().any(|p| path.starts_with(p))) 
                             || (["/dev/", "/mnt/", "/sys/"]
                             .iter().any(|p| path.starts_with(p))));
-    return !starts_with
+    return does_start_with
 }
 
 /*
@@ -537,7 +537,7 @@ fn skip(path: &str) -> bool {
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
-                    .filter_entry(|e| skip(&e.path().to_string_lossy()))
+                    .filter_entry(|e| !str_starts_with(&e.path().to_string_lossy()))
                     .filter_map(|e| e.ok()) {
         let md = match entry.metadata() {
             Ok(d) => d,
