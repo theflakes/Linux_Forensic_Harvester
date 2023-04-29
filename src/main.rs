@@ -544,31 +544,6 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     }
     Ok(())
 }
-
-// one possible implementation of walking a directory only visiting files
-fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path: PathBuf = entry.path();
-            if path.is_dir() {
-                find_suid_sgid(&path, already_seen)?;
-            } else {
-                let md = match entry.metadata() {
-                    Ok(d) => d,
-                    Err(_e) => continue     // catch any errors so we can finish searching all dirs
-                    };
-                let mode = md.mode();
-                let (is_suid, is_sgid) = is_suid_sgid(mode);
-                if is_suid || is_sgid {
-                    process_file("SuidSgid", &path, already_seen)?;
-                }
-                sleep();
-            }
-        }
-    }
-    Ok(())
-}
 */
 // one possible implementation of walking a directory only visiting files
 fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
@@ -580,6 +555,7 @@ fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result
                         Ok(entry) => {
                             let path = entry.path();
                             if path.is_dir() {
+                                if path.starts_with("/proc/") { continue; }
                                 find_suid_sgid(&path, already_seen)?;
                             } else {
                                 let md = match entry.metadata() {
