@@ -22,7 +22,7 @@ mod mutate;
 mod time;
 
 use walkdir::WalkDir;
-use std::{fs::{self}, path::{PathBuf, Path}};
+use std::{fs::{self, DirEntry}, path::{PathBuf, Path}};
 use regex::Regex;
 use {data_def::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
@@ -411,9 +411,10 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
             _ => {
                 if !PID.is_match(&p) { continue };
                 let bin = push_file_path(p, "/exe")?;
-                match process_file(&pdt, &bin, already_seen) {
-                    Ok(f) => f,
-                    Err(e) => println!("{}", e)};
+                match process_file(&pdt, &bin, already_seen)  {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                };
                 process_process(&p, bin, already_seen)?;
             }
         };
@@ -495,7 +496,10 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir()) {
             parse_cron(pdt, &entry.path().to_string_lossy())?;
-            process_file(&pdt, entry.path(), &mut already_seen)?;
+            match process_file(&pdt, entry.path(), &mut already_seen) {
+                Ok(_) => continue,
+                Err(_) => continue,
+            };
     }
     Ok(())
 }
@@ -517,6 +521,13 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
     Ok(())
 }
 
+fn skip(path: &str) -> bool {
+    let starts_with = ((WATCH_PATHS.iter().any(|p| path.starts_with(p))) 
+                            || (["/dev/", "/mnt/", "/sys/"]
+                            .iter().any(|p| path.starts_with(p))));
+    return !starts_with
+}
+
 /*
  find SUID and SGID files
  Weird issue getting hung on a /proc dir on my box: /proc/4635/task/4635/net
@@ -526,11 +537,8 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
-                    .filter_entry(|e| WATCH_PATHS.iter().any(|p| !e.path().to_string_lossy().starts_with(p)))
+                    .filter_entry(|e| skip(&e.path().to_string_lossy()))
                     .filter_map(|e| e.ok()) {
-        if entry.path().starts_with("/proc/") 
-            || entry.path().starts_with("/dev/") 
-            { continue; }
         let md = match entry.metadata() {
             Ok(d) => d,
             Err(_e) => continue     // catch errors so we can finish searching all dirs
