@@ -556,7 +556,7 @@ fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result
                             let path = entry.path();
                             if path.is_dir() {
                                 if path.starts_with("/proc/") 
-                                    || path.starts_with("/dev/fd/") { continue; }
+                                    || path.starts_with("/dev/") { continue; }
                                 find_suid_sgid(&path, already_seen)?;
                             } else {
                                 let md = match entry.metadata() {
