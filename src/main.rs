@@ -554,7 +554,6 @@ fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result
                     match entry {
                         Ok(entry) => {
                             let path = entry.path();
-                            println!("{:?}", path);
                             if path.is_dir() && !entry.file_type()?.is_symlink() {
                                 if path.starts_with("/proc/") 
                                     || path.starts_with("/dev/fd/") { continue; }
@@ -572,11 +571,11 @@ fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result
                                 sleep();
                             }
                         }
-                        Err(_e) => {}
+                        Err(e) => {eprintln!("Error reading entry: {}", e);}
                     }
                 }
             }
-            Err(_e) => {}
+            Err(e) => {eprintln!("Error reading entry: {}", e);}
         }
     }
     Ok(())
