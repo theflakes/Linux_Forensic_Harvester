@@ -61,7 +61,7 @@ pub fn to_int8(num: &str) -> std::io::Result<i8> {
         Therefore have to break the 128bit value into 4 dwords, reverse them and recombine
     See: https://users.rust-lang.org/t/convert-hex-socket-notation-to-ip-and-port/33858/8
 */
-pub fn u128_to_ipv6 (mut n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
+pub fn u128_to_ipv6(mut n: u128) -> std::io::Result<::std::net::Ipv6Addr> {
     unsafe { &mut *(&mut n as *mut u128 as *mut [u32; 4]) }
         .iter_mut()
         .for_each(|n: &mut u32| *n = n.swap_bytes());

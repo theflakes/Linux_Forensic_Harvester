@@ -22,7 +22,7 @@ mod mutate;
 mod time;
 
 use walkdir::WalkDir;
-use std::fs::{self};
+use std::{fs::{self}, path::{PathBuf, Path}};
 use regex::Regex;
 use {data_def::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
@@ -162,7 +162,7 @@ fn find_paths(text: &str, already_seen: &mut Vec<String>) -> std::io::Result<()>
                                         .expect("Invalid Regex");
     }
     for c in RE.captures_iter(text) {
-        let path = std::path::Path::new(&c[1]);
+        let path = Path::new(&c[1]);
         process_file("FileContent", path, already_seen)?;
     }
     Ok(())
@@ -172,7 +172,7 @@ fn find_paths(text: &str, already_seen: &mut Vec<String>) -> std::io::Result<()>
     check if a given file is one we want to inspect the contents of 
     for interesting strings and references to other files
 */
-fn watch_file(file_path: &std::path::Path, path: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn watch_file(file_path: &Path, path: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     if WATCH_FILES.iter().any(|f| path.contains(f)) {
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
@@ -185,7 +185,7 @@ fn watch_file(file_path: &std::path::Path, path: &str, already_seen: &mut Vec<St
 }
 
 // harvest a file's metadata
-fn process_file(pdt: &str, file_path: &std::path::Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
     if file_path.is_file() && !already_seen.contains(&p.clone()) {
         already_seen.push(p);    // track files we've processed so we don't process them more than once
@@ -308,7 +308,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd)).report_log();
-    process_file(&data_type, std::path::Path::new(path), already_seen)?;
+    process_file(&data_type, Path::new(path), already_seen)?;
     Ok(())
 }
 
@@ -337,7 +337,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
 }
 
 // gather and report process information via procfs
-fn process_process(root_path: &str, bin: std::path::PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_process(root_path: &str, bin: PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let exists = path_exists(&path);
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline")?)?;
@@ -483,7 +483,7 @@ fn process_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> s
         "/etc/crontab" => parse_cron(pdt, path)?,
         _ => {}
     };
-    process_file(&pdt, std::path::Path::new(path), &mut already_seen)?;
+    process_file(&pdt, Path::new(path), &mut already_seen)?;
     Ok(())
 }
 
@@ -522,7 +522,7 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
  Weird issue getting hung on a /proc dir on my box: /proc/4635/task/4635/net
     ls: reading directory '/proc/4635/task/4635/net': Invalid argument
     total 0
-*/
+
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
@@ -540,6 +540,31 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
                 process_file("SuidSgid", entry.path(), already_seen)?;
             }
             sleep();
+        }
+    }
+    Ok(())
+}*/
+
+// one possible implementation of walking a directory only visiting files
+fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path: PathBuf = entry.path();
+            if path.is_dir() {
+                find_suid_sgid(&path, already_seen)?;
+            } else {
+                let md = match entry.metadata() {
+                    Ok(d) => d,
+                    Err(_e) => continue     // catch any errors so we can finish searching all dirs
+                    };
+                let mode = md.mode();
+                let (is_suid, is_sgid) = is_suid_sgid(mode);
+                if is_suid || is_sgid {
+                    process_file("SuidSgid", &path, already_seen)?;
+                }
+                sleep();
+            }
         }
     }
     Ok(())
@@ -572,8 +597,9 @@ fn main() -> std::io::Result<()> {
                 Err(_e) => continue};
         }
     }
+    // WARNING: searches entire directory structure
     if ARGS.flag_suidsgid {
-        find_suid_sgid(&mut already_seen)?; // WARNING: searches entire directory structure
+        find_suid_sgid(&push_file_path("/", "")?, &mut already_seen)?; 
     }
     Ok(())
 }

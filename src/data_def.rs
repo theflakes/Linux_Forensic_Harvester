@@ -33,6 +33,8 @@ Options:
   -p, --port <port>     Destination port to send output to [default: 80]
   -l, --limit           Limit CPU use
   -s, --suidsgid        Search for suid and sgid files
+                        - This will search the entire '/' including subdirectories
+                        - Can take a very long time
 
 Note:
   If not run as root some telemetry cannot be harvested.
