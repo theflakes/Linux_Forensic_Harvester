@@ -554,9 +554,9 @@ fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result
                     match entry {
                         Ok(entry) => {
                             let path = entry.path();
-                            if path.is_dir() {
+                            if path.is_dir() && !entry.file_type()?.is_symlink {
                                 if path.starts_with("/proc/") 
-                                    || path.starts_with("/dev/") { continue; }
+                                    || path.starts_with("/dev/fd/") { continue; }
                                 find_suid_sgid(&path, already_seen)?;
                             } else {
                                 let md = match entry.metadata() {
