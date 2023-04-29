@@ -35,6 +35,7 @@ Options:
   -s, --suidsgid        Search for suid and sgid files
                         - This will search the entire '/' including subdirectories
                         - Can take a very long time
+                        - /proc and /dev directories are ignored
 
 Note:
   If not run as root some telemetry cannot be harvested.

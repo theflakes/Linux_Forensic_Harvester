@@ -522,60 +522,29 @@ fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) 
  Weird issue getting hung on a /proc dir on my box: /proc/4635/task/4635/net
     ls: reading directory '/proc/4635/task/4635/net': Invalid argument
     total 0
-
+*/
 fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
                     .filter_entry(|e| WATCH_PATHS.iter().any(|p| !e.path().to_string_lossy().starts_with(p)))
                     .filter_map(|e| e.ok()) {
-        if entry.path().starts_with("/proc/") { continue; } // ignore proc directory
+        if entry.path().starts_with("/proc/") 
+            || entry.path().starts_with("/dev/") 
+            { continue; }
         let md = match entry.metadata() {
             Ok(d) => d,
-            Err(_e) => continue     // catch any errors so we can finish searching all dirs
+            Err(_e) => continue     // catch errors so we can finish searching all dirs
             };
         if md.is_file() {
             let mode = md.mode();
             let (is_suid, is_sgid) = is_suid_sgid(mode);
             if is_suid || is_sgid {
-                process_file("SuidSgid", entry.path(), already_seen)?;
+                match process_file("SuidSgid", entry.path(), already_seen) {
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                };
             }
             sleep();
-        }
-    }
-    Ok(())
-}
-*/
-// one possible implementation of walking a directory only visiting files
-fn find_suid_sgid(dir: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    if dir.is_dir() {
-        match fs::read_dir(dir) {
-            Ok(entries) => {
-                for entry in entries {
-                    match entry {
-                        Ok(entry) => {
-                            let path = entry.path();
-                            if path.is_dir() && !entry.file_type()?.is_symlink() {
-                                if path.starts_with("/proc/") 
-                                    || path.starts_with("/dev/fd/") { continue; }
-                                find_suid_sgid(&path, already_seen)?;
-                            } else {
-                                let md = match path.metadata() {
-                                    Ok(d) => d,
-                                    Err(_e) => continue     // catch any errors so we can finish searching all dirs
-                                    };
-                                let mode = md.mode();
-                                let (is_suid, is_sgid) = is_suid_sgid(mode);
-                                if is_suid || is_sgid {
-                                    process_file("SuidSgid", &path, already_seen)?;
-                                }
-                                sleep();
-                            }
-                        }
-                        Err(e) => {eprintln!("Error reading entry: {}", e);}
-                    }
-                }
-            }
-            Err(e) => {eprintln!("Error reading entry: {}", e);}
         }
     }
     Ok(())
@@ -610,7 +579,7 @@ fn main() -> std::io::Result<()> {
     }
     // WARNING: searches entire directory structure
     if ARGS.flag_suidsgid {
-        find_suid_sgid(&push_file_path("/", "")?, &mut already_seen)?; 
+        find_suid_sgid(&mut already_seen)?; 
     }
     Ok(())
 }
