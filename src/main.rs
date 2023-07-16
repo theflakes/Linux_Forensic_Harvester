@@ -21,6 +21,7 @@ mod file_op;
 mod mutate;
 mod time;
 
+use serde::de::IntoDeserializer;
 use walkdir::WalkDir;
 use std::{fs::{self, DirEntry}, path::{PathBuf, Path}};
 use regex::Regex;
@@ -30,68 +31,49 @@ use std::os::unix::fs::MetadataExt;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 26] = [
-    "/etc/init.d",
-    "/etc/modules",
-    "/etc/rc.local",
-    "/etc/initramfs-tools/modules",
+const WATCH_PATHS: [&str; 14] = [
+    "/etc",
     "/home",
-    "/etc/passwd",
-    "/etc/group",
     "/lib/modules",
-    "/etc/crontab",
-    "/etc/cron.d",
-    "/etc/cron.hourly",
-    "/etc/cron.daily",
-    "/etc/cron.weekly",
-    "/etc/cron.monthly",
-    "/etc/systemd/system",
-    "/usr/lib/systemd/system",
-    "/var/spool/cron",
-    "/tmp",
     "/proc",
     "/root",
-    "/var/log",
-    "/var/www",
-    "/usr/share/nginx/www",
-    "/usr/share/nginx/html",
+    "/srv",
+    "/tmp",
+    "/usr/lib/systemd/system",
     "/usr/local/var/www/html",
-    "/srv"
-    ];
-// files whose content we want to look at for interesting strings
-const WATCH_FILES: [&str; 32] = [
-    "/etc/passwd",
-    "/etc/group",
-    "/etc/rc.local",
-    "/etc/rc.d/",
-    "/usr/lib/systemd/system/",
-    "/etc/cron.hourly",
-    "/etc/cron.daily",
-    "/etc/cron.weekly",
-    "/etc/cron.monthly",
+    "/usr/share/nginx/html",
+    "/usr/share/nginx/www",
+    "/var/log",
     "/var/spool/cron",
-    "/.bash_profile",
-    "/.bashrc",
-    "/.zshrc",
-    "/.bash_history",
-    "/.ash_history",
-    "/fish_history",
-    "/config.fish",
-    "/.zsh_history",
-    "/.history",
-    "/.sh_history",
-    "/.profile",
-    "/.cshrc",
-    "/.bash_logout",
-    "/.lesshst",
-    "/.viminfo",
-    "/root/",
-    "/var/log/",
-    "/var/www/",
-    "/usr/share/nginx/www/",
-    "/usr/share/nginx/html/",
-    "/usr/local/var/www/html/",
-    "/srv/"
+    "/var/www",
+    ];
+// files mime types whose content we want to look at for interesting things
+const WATCH_FILE_TYPES: [&str; 25] = [
+    "abiword",
+    "/pdf",
+    "/pkix-cert+pem",
+    "/rtf",
+    "/vnd.iccprofile",
+    "/x-desktop",
+    "/x-object",
+    "/x-pcapng",
+    "/x-perl",
+    "/x-sh",
+    "/x-tcl",
+    "/xml",
+    "bittorrent",
+    "excel",
+    "javascript",
+    "json",
+    "msword",
+    "officedocument",
+    "opendocument",
+    "powerpoint",
+    "presentation",
+    "stardivision",
+    "text/",
+    "wordperfect",
+    "yaml",
     ];
 
 
@@ -172,8 +154,8 @@ fn find_paths(text: &str, already_seen: &mut Vec<String>) -> std::io::Result<()>
     check if a given file is one we want to inspect the contents of 
     for interesting strings and references to other files
 */
-fn watch_file(file_path: &Path, path: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    if WATCH_FILES.iter().any(|f| path.contains(f)) {
+fn watch_file(file_path: &Path, path: &str, mime_type: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
             find_paths(&data, already_seen)?;
@@ -213,11 +195,11 @@ fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> 
         let (md5, mime_type) = get_file_content_info(&file)?;
         drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
-                    path_buf.into(), md5, mime_type, atime, wtime, 
+                    path_buf.into(), md5, mime_type.clone(), atime, wtime, 
                     ctime, size, is_hidden(&path), uid, gid, 
                     nlink, inode, perms, is_suid, is_sgid).report_log();
 
-        watch_file(&path, path_buf, already_seen)?;
+        watch_file(&path, path_buf, &mime_type, already_seen)?;
     }
     Ok(())
 }

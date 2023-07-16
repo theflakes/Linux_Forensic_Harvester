@@ -4,8 +4,8 @@ extern crate serde_json;        // needed for json serialization
 extern crate docopt;
 
 use serde::Serialize;
-use serde_derive::{Deserialize};
-use std::io::prelude::{Write};
+use serde_derive::Deserialize;
+use std::io::prelude::Write;
 use docopt::Docopt;
 use std::thread;
 
