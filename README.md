@@ -99,6 +99,7 @@ Information gathered on:
 - Link files
 - Loaded Kernel Modules
 - Network connections (via procfs)
+- Possible rookit
 - Processes (via procfs)
 - Process file (file of the process on disk)
 - Users
