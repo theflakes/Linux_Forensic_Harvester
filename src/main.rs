@@ -21,31 +21,40 @@ mod file_op;
 mod mutate;
 mod time;
 
+use chrono::format::format;
 use serde::de::IntoDeserializer;
 use walkdir::WalkDir;
 use std::{fs::{self, DirEntry}, path::{PathBuf, Path}};
 use regex::Regex;
 use {data_def::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
-//use nix::unistd::Uid;
+use nix::unistd::Uid;
+use std::sync::Mutex;
+use std::process;
+
+lazy_static! {
+    pub static ref IS_ROOT: bool = Uid::effective().is_root();
+}
+
+const MAX_FILE_SIZE: u64 = 100000;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 14] = [
-    "/etc",
-    "/home",
-    "/lib/modules",
+const WATCH_PATHS: [&str; 1] = [
+    //"/etc",
+    // "/home",
+    // "/lib/modules",
     "/proc",
-    "/root",
-    "/srv",
-    "/tmp",
-    "/usr/lib/systemd/system",
-    "/usr/local/var/www/html",
-    "/usr/share/nginx/html",
-    "/usr/share/nginx/www",
-    "/var/log",
-    "/var/spool/cron",
-    "/var/www",
+    // "/root",
+    // "/srv",
+    // "/tmp",
+    // "/usr/lib/systemd/system",
+    // "/usr/local/var/www/html",
+    // "/usr/share/nginx/html",
+    // "/usr/share/nginx/www",
+    // "/var/log",
+    // "/var/spool/cron",
+    // "/var/www",
     ];
 // files mime types whose content we want to look at for interesting things
 const WATCH_FILE_TYPES: [&str; 25] = [
@@ -75,7 +84,6 @@ const WATCH_FILE_TYPES: [&str; 25] = [
     "wordperfect",
     "yaml",
     ];
-
 
 /*
     regex's to find interesting strings in files
@@ -127,7 +135,7 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
 
     for c in RE.captures_iter(text) {
         let line = &c[0];
-        TxFileContent::new("".to_string(), "FileContent".to_string(), 
+        TxFileContent::new(*IS_ROOT, "".to_string(), "FileContent".to_string(), 
                             get_now()?, file.to_string(), line.into(), 
                             "".to_string()).report_log();
     }
@@ -146,60 +154,6 @@ fn find_paths(text: &str, already_seen: &mut Vec<String>) -> std::io::Result<()>
     for c in RE.captures_iter(text) {
         let path = Path::new(&c[1]);
         process_file("FileContent", path, already_seen)?;
-    }
-    Ok(())
-}
-
-/*
-    check if a given file is one we want to inspect the contents of 
-    for interesting strings and references to other files
-*/
-fn watch_file(file_path: &Path, path: &str, mime_type: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
-        let data = read_file_string(file_path)?;
-        if !data.is_empty() {
-            find_paths(&data, already_seen)?;
-            find_interesting(path, &data)?;
-            drop(data);
-        }
-    }
-    Ok(())
-}
-
-// harvest a file's metadata
-fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    let p: String = file_path.to_string_lossy().into();
-    if file_path.is_file() && !already_seen.contains(&p.clone()) {
-        already_seen.push(p);    // track files we've processed so we don't process them more than once
-        let (parent_data_type, path) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get sysmlink info and path to linked file
-        
-        let file = open_file(file_path)?;
-        let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
-        if file.metadata()?.created().is_ok() { 
-            ctime = format_date(file.metadata()?.created()?.into())?; 
-        }
-        let atime = format_date(file.metadata()?.accessed()?.into())?;
-        let wtime = format_date(file.metadata()?.modified()?.into())?;
-        let size = file.metadata()?.len();
-        let uid = file.metadata()?.uid();
-        let gid = file.metadata()?.gid();
-        let nlink = file.metadata()?.nlink();
-        let inode = file.metadata()?.ino();
-        let path_buf = match path.to_str() {
-            Some(s) => s,
-            None => ""
-            };
-        let mode = file.metadata()?.mode();
-        let perms = parse_permissions(mode);
-        let (is_suid, is_sgid) = is_suid_sgid(mode);
-        let (md5, mime_type) = get_file_content_info(&file)?;
-        drop(file); // close file handle immediately after not needed to avoid too many files open error
-        TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
-                    path_buf.into(), md5, mime_type.clone(), atime, wtime, 
-                    ctime, size, is_hidden(&path), uid, gid, 
-                    nlink, inode, perms, is_suid, is_sgid).report_log();
-
-        watch_file(&path, path_buf, &mime_type, already_seen)?;
     }
     Ok(())
 }
@@ -269,7 +223,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                 if fields.len() > 8 {
                     let (local_ip, local_port) = get_ip_port(fields[1].trim())?;
                     let (remote_ip, remote_port) = get_ip_port(fields[2].trim())?;
-                    TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
+                    TxNetConn::new(*IS_ROOT, "Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7])?, local_ip, 
                                     local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
                                     to_int128(&inode)?).report_log();
@@ -287,7 +241,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
 */
 fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let data_type = "ProcessOpenFile".to_string();
-    TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
+    TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd)).report_log();
     process_file(&data_type, Path::new(path), already_seen)?;
@@ -319,7 +273,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
 }
 
 // gather and report process information via procfs
-fn process_process(root_path: &str, bin: PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_process(root_path: &str, bin: &PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let exists = path_exists(&path);
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline")?)?;
@@ -335,7 +289,7 @@ fn process_process(root_path: &str, bin: PathBuf, already_seen: &mut Vec<String>
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat")?)?, " ")?;
     let ppid = to_int32(&stat[3])?;
     let data_type = "Process".to_string();
-    TxProcess::new("".to_string(), data_type.clone(), get_now()?, 
+    TxProcess::new(*IS_ROOT, "".to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
                     cwd.to_string_lossy().into()).report_log();
@@ -355,7 +309,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         if dependencies.ends_with(",") { dependencies.pop(); }
         let state = values[4].to_string();
         let offset = values[5].to_string();
-        TxLoadedModule::new(pdt.to_string(), "KernelModule".to_string(), get_now()?, 
+        TxLoadedModule::new(*IS_ROOT, pdt.to_string(), "KernelModule".to_string(), get_now()?, 
                             name, size, loaded, dependencies, state, offset).report_log();
     }
     Ok(())
@@ -370,7 +324,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         let mount_point = values[1].to_string();
         let file_system_type = values[2].to_string();
         let mount_options = values[3].replace(",", ", ").trim().to_string();
-        TxMountPoint::new(pdt.to_string(), "MountPoint".to_string(), get_now()?, 
+        TxMountPoint::new(*IS_ROOT, pdt.to_string(), "MountPoint".to_string(), get_now()?, 
                             name, mount_point, file_system_type, mount_options).report_log();
     }
     Ok(())
@@ -382,22 +336,25 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
         static ref PID: Regex = Regex::new(r#"(?mix)^/proc/\d{1,5}$"#)
                                         .expect("Invalid Regex");
     }
+    let pid_ends = format!("/{}", process::id());
+    let pid_contains = format!("{}/", pid_ends);
     for entry in WalkDir::new(path)
                 .max_depth(2)
                 .into_iter()
                 .filter_map(|e| e.ok()) {
         let p: &str = &*(entry.path().to_string_lossy().to_string());
+        if p.ends_with(&pid_ends) || p.contains(&pid_contains) { continue; } // do not examine our own process
         match p {
             "/proc/modules" => parse_modules(pdt, &p)?,
             "/proc/mounts" => parse_mounts(pdt, &p)?,
             _ => {
                 if !PID.is_match(&p) { continue };
                 let bin = push_file_path(p, "/exe")?;
-                match process_file(&pdt, &bin, already_seen)  {
+                process_process(&p, &bin, already_seen)?;
+                match process_file("Process", &bin, already_seen)  {
                     Ok(_) => continue,
                     Err(_) => continue,
                 };
-                process_process(&p, bin, already_seen)?;
             }
         };
         sleep();
@@ -416,7 +373,7 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let description = values[4].to_string();
         let home_directory = values[5].to_string();
         let shell = values[6].to_string();
-        TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
+        TxLocalUser::new(*IS_ROOT, pdt.to_string(), "LocalUser".to_string(), get_now()?, 
                         account_name, uid, gid, description, home_directory, 
                         shell).report_log();
     }
@@ -431,7 +388,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let group_name = values[0].to_string();
         let gid = values[2].to_string();
         let members = values[3].to_string();
-        TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
+        TxLocalGroup::new(*IS_ROOT, pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
                             group_name, gid, members).report_log();
     }
     Ok(())
@@ -451,22 +408,10 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
         let day_of_week = fields[4].to_string();
         let account_name = fields[5].to_string();
         let command_line = fields[6].to_string();
-        TxCron::new(pdt.to_string(), "Cron".to_string(), get_now()?, 
+        TxCron::new(*IS_ROOT, pdt.to_string(), "Cron".to_string(), get_now()?, 
                     path.to_string(), minute, hour, day_of_month, month, 
                     day_of_week, account_name, command_line).report_log();
     }
-    Ok(())
-}
-
-// process files and specific files explicitely
-fn process_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    match path {
-        "/etc/passwd" => parse_users(pdt, path)?,
-        "/etc/group" => parse_groups(pdt, path)?,
-        "/etc/crontab" => parse_cron(pdt, path)?,
-        _ => {}
-    };
-    process_file(&pdt, Path::new(path), &mut already_seen)?;
     Ok(())
 }
 
@@ -486,8 +431,79 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
     Ok(())
 }
 
+/*
+    check if a given file is one we want to inspect the contents of 
+    for interesting strings and references to other files
+*/
+fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
+        let data = read_file_string(file_path)?;
+        if !data.is_empty() {
+            find_paths(&data, already_seen)?;
+            // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
+            // See: https://github.com/sandflysecurity/sandfly-file-decloak
+            let size_read =  data.len() as u64;
+            if size > size_read + 1 {
+                TxRootkit::new(*IS_ROOT, "File".to_string(), "Rootkit".to_string(), 
+                    get_now()?, path.to_string(), size, size_read);
+            }
+            if size_read < MAX_FILE_SIZE { find_interesting(path, &data)? };
+            drop(data);
+        }
+    }
+    Ok(())
+}
+
+// harvest a file's metadata
+fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    let p: String = file_path.to_string_lossy().into();
+    if file_path.is_file() && !already_seen.contains(&p.clone()) {
+        already_seen.push(p);    // track files we've processed so we don't process them more than once
+        let (parent_data_type, path) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get sysmlink info and path to linked file
+        
+        let file = open_file(file_path)?;
+        let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
+        if file.metadata()?.created().is_ok() { 
+            ctime = format_date(file.metadata()?.created()?.into())?; 
+        }
+        let atime = format_date(file.metadata()?.accessed()?.into())?;
+        let wtime = format_date(file.metadata()?.modified()?.into())?;
+        let size = file.metadata()?.len();
+        let uid = file.metadata()?.uid();
+        let gid = file.metadata()?.gid();
+        let nlink = file.metadata()?.nlink();
+        let inode = file.metadata()?.ino();
+        let path_buf = match path.to_str() {
+            Some(s) => s,
+            None => ""
+            };
+        let mode = file.metadata()?.mode();
+        let perms = parse_permissions(mode);
+        let (is_suid, is_sgid) = is_suid_sgid(mode);
+        let (md5, mime_type) = get_file_content_info(&file)?;
+        drop(file); // close file handle immediately after not needed to avoid too many files open error
+        TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
+                    path_buf.into(), md5, mime_type.clone(), atime, wtime, 
+                    ctime, size, is_hidden(&path), uid, gid, 
+                    nlink, inode, perms, is_suid, is_sgid).report_log();
+
+        // certain files we want to parse explicitely
+        let orig_path = file_path.clone();
+        let path = file_path.to_string_lossy();
+        match path.as_ref() {
+            "/etc/passwd" => parse_users(pdt, "/etc/passwd".into())?,
+            "/etc/group" => parse_groups(pdt, "/etc/group".into())?,
+            "/etc/crontab" => parse_cron(pdt, "/etc/crontab".into())?,
+            _ => {
+                watch_file(orig_path, path_buf, &mime_type, size, already_seen)?
+            }
+        }
+    }
+    Ok(())
+}
+
 // process directories and sub dirs we are interested in
-fn process_directory(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     match path {
         "/proc" => examine_procs(&pdt, &path, &mut already_seen)?,
         "/etc/cron.d" => process_cron(&pdt, path, &mut already_seen)?,
@@ -540,32 +556,16 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
 
-/*
-fn is_root() {
-    if !Uid::effective().is_root() {
-        println!("{}", USAGE);
-        std::process::exit(1);
-     }
-}
-*/
 
 // let's start this thing
 fn main() -> std::io::Result<()> {
-    //is_root();
     let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops
 
     for path in WATCH_PATHS.iter() {
         if !path_exists(path) { continue }
-        let md = fs::metadata(path)?;
-        if md.is_dir() {  // if this is a directory we have more to do
-            match process_directory("", path, &mut already_seen) {
-                Ok(f) => f,
-                Err(_e) => continue};
-        } else {
-            match process_files("", path, &mut already_seen) {
-                Ok(f) => f,
-                Err(_e) => continue};
-        }
+        match process_directory_files("", path, &mut already_seen) {
+            Ok(f) => f,
+            Err(_e) => continue};
     }
     // WARNING: searches entire directory structure
     if ARGS.flag_suidsgid {

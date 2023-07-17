@@ -154,7 +154,7 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_
     let wtime = format_date(link.modified()?.into())?;
     let size = link.len();
 
-    TxLink::new(pdt.to_string(), "ShellLink".to_string(), get_now()?, 
+    TxLink::new(*crate::IS_ROOT, pdt.to_string(), "ShellLink".to_string(), get_now()?, 
                             link_path, file_path, atime, wtime, 
                             ctime, size, hidden).report_log();
     Ok(())

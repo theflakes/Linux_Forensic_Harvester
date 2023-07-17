@@ -1,6 +1,8 @@
 # Linux_Forensic_Harvester
 Harvest Linux forensic data for operational triage of an event.
 
+This tool will produce a considerable amount of Json logs.
+
 If you just want to run it, download the "lin_fh" binary.
 
 ```

@@ -2,6 +2,7 @@ extern crate serde;             // needed for json serialization
 extern crate serde_derive;      // needed for json serialization
 extern crate serde_json;        // needed for json serialization
 extern crate docopt;
+extern crate nix;
 
 use serde::Serialize;
 use serde_derive::Deserialize;
@@ -54,7 +55,6 @@ pub struct Args {
     pub flag_suidsgid: bool
 }
 
-
 lazy_static! { 
     pub static ref ARGS: Args = Docopt::new(USAGE)
                     .and_then(|d| d.deserialize())
@@ -100,6 +100,7 @@ impl<T : ?Sized + Serialize> Loggable for T {}
 // holds file metadata info
 #[derive(Serialize)]
 pub struct TxFile {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     pub data_type: String,
     pub timestamp: String,
@@ -121,6 +122,7 @@ pub struct TxFile {
 }
 impl TxFile {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -140,6 +142,7 @@ impl TxFile {
             suid: bool,
             sgid: bool) -> TxFile {
         TxFile {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -170,6 +173,8 @@ impl TxFile {
 // holds interesting content found in files
 #[derive(Serialize)]
 pub struct TxFileContent {
+    pub run_as_root: bool,
+    #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "FileContent")]
     pub data_type: String,
@@ -180,6 +185,7 @@ pub struct TxFileContent {
 }
 impl TxFileContent {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -187,6 +193,7 @@ impl TxFileContent {
             line: String,
             bytes: String) -> TxFileContent {
         TxFileContent {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -202,9 +209,50 @@ impl TxFileContent {
     }
 }
 
+// holds interesting content found in files
+#[derive(Serialize)]
+pub struct TxRootkit {
+    pub run_as_root: bool,
+    #[serde(default = "File")]
+    pub parent_data_type: String,
+    #[serde(default = "Rootkit")]
+    pub data_type: String,
+    pub timestamp: String,
+    pub path: String,
+    pub size: u64,
+    pub size_read: u64
+}
+impl TxRootkit {
+    pub fn new(
+            run_as_root: bool,
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            path: String,
+            size: u64,
+            size_read: u64) -> TxRootkit {
+        TxRootkit {
+            run_as_root,
+            parent_data_type,
+            data_type,
+            timestamp,
+            path,
+            size,
+            size_read
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
 // holds symlink metdata
 #[derive(Serialize)]
 pub struct TxLink {
+    pub run_as_root: bool,
+    #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "ShellLink")]
     pub data_type: String,
@@ -219,6 +267,7 @@ pub struct TxLink {
 }
 impl TxLink {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -230,6 +279,7 @@ impl TxLink {
             size: u64,
             hidden: bool) -> TxLink {
         TxLink {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -252,6 +302,7 @@ impl TxLink {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 pub struct TxProcess {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "Process")]
     pub data_type: String,
@@ -267,6 +318,7 @@ pub struct TxProcess {
 }
 impl TxProcess {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -279,6 +331,7 @@ impl TxProcess {
             root_directory: String,
             current_working_directory: String) -> TxProcess {
         TxProcess {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -302,6 +355,7 @@ impl TxProcess {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 pub struct TxProcessFile {
+    pub run_as_root: bool,
     #[serde(default = "Process")]
     pub parent_data_type: String,
     #[serde(default = "ProcessOpenFile")]
@@ -314,6 +368,7 @@ pub struct TxProcessFile {
 }
 impl TxProcessFile {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -322,6 +377,7 @@ impl TxProcessFile {
             path: String,
             exists: bool) -> TxProcessFile {
         TxProcessFile {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -341,6 +397,7 @@ impl TxProcessFile {
 // hold local user metadata
 #[derive(Serialize)]
 pub struct TxLocalUser {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "LocalUser")]
     pub data_type: String,
@@ -354,6 +411,7 @@ pub struct TxLocalUser {
 }
 impl TxLocalUser {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -364,6 +422,7 @@ impl TxLocalUser {
             home_directory: String,
             shell: String) -> TxLocalUser {
         TxLocalUser {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -385,6 +444,7 @@ impl TxLocalUser {
 // hold group metadata
 #[derive(Serialize)]
 pub struct TxLocalGroup {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "LocalGroup")]
     pub data_type: String,
@@ -395,6 +455,7 @@ pub struct TxLocalGroup {
 }
 impl TxLocalGroup {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -402,6 +463,7 @@ impl TxLocalGroup {
             gid: String,
             members: String) -> TxLocalGroup {
         TxLocalGroup {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -420,6 +482,7 @@ impl TxLocalGroup {
 // hold loaded kernel modules metadata
 #[derive(Serialize)]
 pub struct TxLoadedModule {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "KernelModule")]
     pub data_type: String,
@@ -433,6 +496,7 @@ pub struct TxLoadedModule {
 }
 impl TxLoadedModule {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -443,6 +507,7 @@ impl TxLoadedModule {
             state: String,
             memory_offset: String) -> TxLoadedModule {
         TxLoadedModule {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -464,6 +529,7 @@ impl TxLoadedModule {
 // hold mount point metadata
 #[derive(Serialize)]
 pub struct TxMountPoint {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "MountPoint")]
     pub data_type: String,
@@ -475,6 +541,7 @@ pub struct TxMountPoint {
 }
 impl TxMountPoint {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -483,6 +550,7 @@ impl TxMountPoint {
             file_system_type: String,
             mount_options: String) -> TxMountPoint {
         TxMountPoint {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -502,6 +570,7 @@ impl TxMountPoint {
 // hold network connection metadata
 #[derive(Serialize)]
 pub struct TxNetConn {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "NetConn")]
     pub data_type: String,
@@ -518,6 +587,7 @@ pub struct TxNetConn {
 }
 impl TxNetConn {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -531,6 +601,7 @@ impl TxNetConn {
             status: String,
             inode: i128) -> TxNetConn {
         TxNetConn {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -555,6 +626,7 @@ impl TxNetConn {
 // hold network connection metadata
 #[derive(Serialize)]
 pub struct TxCron {
+    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "Cron")]
     pub data_type: String,
@@ -570,6 +642,7 @@ pub struct TxCron {
 }
 impl TxCron {
     pub fn new(
+            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -582,6 +655,7 @@ impl TxCron {
             account_name: String, 
             command_line: String) -> TxCron {
         TxCron {
+            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
