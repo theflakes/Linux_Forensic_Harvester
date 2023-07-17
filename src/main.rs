@@ -519,7 +519,7 @@ fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut Vec<Str
 
 fn str_starts_with(path: &str) -> bool {
     let does_start_with = ((WATCH_PATHS.iter().any(|p| path.starts_with(p))) 
-                            || (["/dev/", "/mnt/", "/sys/"]
+                            || (["/dev/", "/mnt/", "/proc/", "/sys/"]
                             .iter().any(|p| path.starts_with(p))));
     return does_start_with
 }
