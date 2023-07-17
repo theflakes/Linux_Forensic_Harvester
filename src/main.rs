@@ -36,8 +36,6 @@ lazy_static! {
     pub static ref IS_ROOT: bool = Uid::effective().is_root();
 }
 
-const MAX_FILE_SIZE: u64 = 100000;
-
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
 const WATCH_PATHS: [&str; 14] = [
@@ -447,7 +445,7 @@ fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_
                 TxRootkit::new(*IS_ROOT, "File".to_string(), "Rootkit".to_string(), 
                     get_now()?, path.to_string(), size, size_read);
             }
-            if size_read < MAX_FILE_SIZE { find_interesting(path, &data)? };
+            if size_read < ARGS.flag_max { find_interesting(path, &data)? };
             drop(data);
         }
     }

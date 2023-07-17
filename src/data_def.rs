@@ -25,6 +25,7 @@ Usage:
   lin_fh [--ip <ip> --port <port>] [--limit]
   lin_fh [--ip <ip> --port <port>] [--suidsgid] [--limit]
   lin_fh --suidsgid [--limit]
+  lin_fh --max <bytes> [--limit]
   lin_fh --limit
   lin_fh --help
 
@@ -33,6 +34,10 @@ Options:
   -i, --ip <ip>         IP address to send output to [default: NONE]
   -p, --port <port>     Destination port to send output to [default: 80]
   -l, --limit           Limit CPU use
+  -m, --max <bytes>     Max size of a text file in bytes to inspect the content
+                        of for interesting strings [default: 100000]
+                        - Text files will always be searched for references
+                          to other files.
   -s, --suidsgid        Search for suid and sgid files
                         - This will search the entire '/' including subdirectories
                         - Can take a very long time
@@ -40,11 +45,18 @@ Options:
 
 Note:
   If not run as root some telemetry cannot be harvested.
+
+  A log with data_type of 'Rootkit' will be generated if the size of file read into
+  memory is less that the size on disk. This is a simple possible root kit identification
+  method.
+  - See: https://github.com/sandflysecurity/sandfly-file-decloak
   
   To capture network output, start a netcat listener on your port of choice.
   Use the -k option with netcat to prevent netcat from closing after a TCP connection is closed.
 
   Files larger than 256MB will not be hashed.
+
+  Text files larger than '--max' will not be inspected for interesting strings.
 ";
 
 #[derive(Debug, Deserialize)]
@@ -52,6 +64,7 @@ pub struct Args {
     flag_ip: String,
     flag_port: u16,
     flag_limit: bool,
+    pub flag_max: u64,
     pub flag_suidsgid: bool
 }
 
