@@ -40,21 +40,21 @@ const MAX_FILE_SIZE: u64 = 100000;
 
 const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 1] = [
-    //"/etc",
-    // "/home",
-    // "/lib/modules",
+const WATCH_PATHS: [&str; 14] = [
+    "/etc",
+    "/home",
+    "/lib/modules",
     "/proc",
-    // "/root",
-    // "/srv",
-    // "/tmp",
-    // "/usr/lib/systemd/system",
-    // "/usr/local/var/www/html",
-    // "/usr/share/nginx/html",
-    // "/usr/share/nginx/www",
-    // "/var/log",
-    // "/var/spool/cron",
-    // "/var/www",
+    "/root",
+    "/srv",
+    "/tmp",
+    "/usr/lib/systemd/system",
+    "/usr/local/var/www/html",
+    "/usr/share/nginx/html",
+    "/usr/share/nginx/www",
+    "/var/log",
+    "/var/spool/cron",
+    "/var/www",
     ];
 // files mime types whose content we want to look at for interesting things
 const WATCH_FILE_TYPES: [&str; 25] = [
