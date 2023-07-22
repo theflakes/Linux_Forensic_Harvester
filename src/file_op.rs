@@ -129,6 +129,13 @@ pub fn read_file_bytes(mut file: &std::fs::File) -> std::io::Result<Vec<u8>> {
     Ok(buffer)
 }
 
+pub fn u8_to_hex_string(bytes: &Vec<u8>) -> std::io::Result<String> {
+    Ok(bytes.iter()
+                .map(|byte| format!("{:02X}", byte))
+                .collect::<Vec<String>>()
+                .join(", "))
+}
+
 // return the path that a symlink points to
 pub fn resolve_link(link_path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
     let parent_dir = get_parent_dir(link_path)?;

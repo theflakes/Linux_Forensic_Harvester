@@ -222,7 +222,7 @@ impl TxFileContent {
     }
 }
 
-// holds interesting content found in files
+// used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
 pub struct TxRootkit {
     pub run_as_root: bool,

@@ -1,6 +1,6 @@
 [package]
 name = "lin_fh"
-version = "0.5.0"
+version = "0.7.5"
 authors = ["brian kellogg <theflakes@gmail.com>"]
 edition = "2021"
 
@@ -31,3 +31,4 @@ arrayvec = "*"
 libc = "*"
 docopt = "*"
 nix = "*"
+memmap2 = "*"

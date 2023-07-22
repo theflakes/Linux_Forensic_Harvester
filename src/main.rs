@@ -13,6 +13,7 @@
 
 extern crate walkdir;           // traverse directory trees
 extern crate regex;
+extern crate memmap2;
 
 #[macro_use] extern crate lazy_static;
 
@@ -31,6 +32,7 @@ use std::os::unix::fs::MetadataExt;
 use nix::unistd::Uid;
 use std::sync::Mutex;
 use std::process;
+use memmap2::{Mmap, MmapOptions};
 
 lazy_static! {
     pub static ref IS_ROOT: bool = Uid::effective().is_root();
@@ -430,6 +432,33 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
 }
 
 /*
+    Compare file read by std api with mmap read file
+    and report any bytes that are only found in mmap
+    based upon a byte by byte comparison
+    See: https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
+*/
+fn get_rootkit_hidden_file_data(file_path: &Path) -> std::io::Result<()> {
+    let file = fs::File::open(file_path)?;
+    let contents = read_file_bytes(&file)?;
+    let mmap = unsafe { MmapOptions::new().map(&file)? };
+    let mut differences = Vec::new();
+    for (i, (a, b)) in contents.iter().zip(mmap.iter()).enumerate() {
+        if a != b {
+            differences.extend_from_slice(&mmap[i..]); // starting at the first difference found copy it and the rest of the file
+            break;
+        }
+    }
+    TxFileContent::new(*IS_ROOT, 
+        "Rootkit".to_string(), 
+        "FileContent".to_string(), 
+        get_now()?, 
+        file_path.to_string_lossy().into_owned(), 
+        String::from_utf8_lossy(&differences).into_owned(), 
+        u8_to_hex_string(&differences)?).report_log();
+    Ok(())
+}
+
+/*
     check if a given file is one we want to inspect the contents of 
     for interesting strings and references to other files
 */
@@ -444,6 +473,7 @@ fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_
             if size > size_read + 1 {
                 TxRootkit::new(*IS_ROOT, "File".to_string(), "Rootkit".to_string(), 
                     get_now()?, path.to_string(), size, size_read);
+                get_rootkit_hidden_file_data(file_path)?;
             }
             if size_read < ARGS.flag_max { find_interesting(path, &data)? };
             drop(data);
