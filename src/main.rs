@@ -499,9 +499,12 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
     based upon a byte by byte comparison
     See: https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
 */
-fn get_rootkit_hidden_file_data(file_path: &Path, size: u64, size_read: u64) -> std::io::Result<()> {
+fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<()> {
     let file = fs::File::open(file_path)?;
     let contents = read_file_bytes(&file)?;
+    let size_read = contents.len() as u64;
+    // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
+    if size <= size_read { return Ok(()) }
     let mmap = unsafe { MmapOptions::new().map(&file)? };
     let mut differences = Vec::new();
     for (i, (a, b)) in contents.iter().zip(mmap.iter()).enumerate() {
@@ -510,7 +513,6 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64, size_read: u64) -> 
             break;
         }
     }
-    if differences.is_empty() { return Ok(()) }
     TxRootkit::new(*IS_ROOT, 
                     "File".to_string(), 
                     "Rootkit".to_string(), 
@@ -518,6 +520,7 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64, size_read: u64) -> 
                     (file_path.to_string_lossy()).into_owned(), 
                     size, 
                     size_read).report_log();
+    if differences.is_empty() { return Ok(()) }
     TxFileContent::new(*IS_ROOT, 
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
@@ -537,15 +540,9 @@ fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
             find_paths(&data, already_seen)?;
-            let size_read =  data.len() as u64;
-            // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
-            // See: https://github.com/sandflysecurity/sandfly-file-decloak
-            if size > size_read + 4 {
-                //println!("{} - {} = {}", size, size_read, size - size_read);
-                get_rootkit_hidden_file_data(file_path, size, size_read)?;
-            }
+            let size_read = data.len() as u64;
+            get_rootkit_hidden_file_data(file_path, size)?;
             if size_read < ARGS.flag_max { find_interesting(path, &data)? };
-            drop(data);
         }
     }
     Ok(())
@@ -578,7 +575,6 @@ fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> 
         let perms = parse_permissions(mode);
         let (is_suid, is_sgid) = is_suid_sgid(mode);
         let (md5, mime_type) = get_file_content_info(&file)?;
-        drop(file); // close file handle immediately after not needed to avoid too many files open error
         TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
                     path_buf.into(), md5, mime_type.clone(), atime, wtime, 
                     ctime, size, is_hidden(&path), uid, gid, 
