@@ -33,6 +33,8 @@ use nix::unistd::Uid;
 use std::sync::Mutex;
 use std::process;
 use memmap2::{Mmap, MmapOptions};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashSet;
 
 lazy_static! {
     pub static ref IS_ROOT: bool = Uid::effective().is_root();
@@ -244,7 +246,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd)).report_log();
-    process_file(&data_type, Path::new(path), already_seen)?;
+    process_file(&pdt, Path::new(path), already_seen)?;
     Ok(())
 }
 
@@ -255,7 +257,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     socket: --> open network connection
     pipe: --> open redirector
 */
-fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let descriptors = push_file_path(root_path, "/fd")?;
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
@@ -264,7 +266,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
         let entry: String = resolve_link(d.path())?.to_string_lossy().into();
         match entry {
             ref s if s.contains("socket:") => process_net_conn(path, &entry, pid)?,
-            _ => match process_open_file(&data_type, &d.path().to_string_lossy(), &entry, pid, already_seen) {
+            _ => match process_open_file(&pdt, &d.path().to_string_lossy(), &entry, pid, already_seen) {
                 Ok(f) => f,
                 Err(_e) => continue }
         };
@@ -273,7 +275,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, data_type: &s
 }
 
 // gather and report process information via procfs
-fn process_process(root_path: &str, bin: &PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let exists = path_exists(&path);
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline")?)?;
@@ -287,13 +289,73 @@ fn process_process(root_path: &str, bin: &PathBuf, already_seen: &mut Vec<String
     };
     let pid = to_int32(sub)?;
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat")?)?, " ")?;
+    let mut data_type = "Process".to_string();
     let ppid = to_int32(&stat[3])?;
-    let data_type = "Process".to_string();
-    TxProcess::new(*IS_ROOT, "".to_string(), data_type.clone(), get_now()?, 
+    TxProcess::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
                     cwd.to_string_lossy().into()).report_log();
+    if pdt.eq("Rootkit") { data_type = "Rootkit".to_string(); }
     process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
+    Ok(())
+}
+
+fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    let mut visible = HashSet::new();
+    let proc_dir = Path::new("/proc");
+    let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+
+    for entry in fs::read_dir(proc_dir)? {
+        let entry = entry?;
+        if let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() {
+            visible.insert(pid);
+        }
+    }
+
+    let pid_max = fs::read_to_string("/proc/sys/kernel/pid_max")?
+        .trim()
+        .parse::<u32>()
+        .unwrap();
+    for pid in 2..=pid_max {
+        if visible.contains(&pid) {
+            continue;
+        }
+        let status_path = proc_dir.join(pid.to_string()).join("status");
+        if !status_path.exists() {
+            continue;
+        }
+        if status_path.metadata()?.mtime() as u64 >= start {
+            continue;
+        }
+
+        let status = fs::read_to_string(status_path)?;
+        let tgid = status
+            .lines()
+            .find(|line| line.starts_with("Tgid:"))
+            .and_then(|line| line.split_whitespace().nth(1))
+            .and_then(|tgid| tgid.parse::<u32>().ok())
+            .unwrap();
+        if tgid != pid {
+            continue;
+        }
+        let exe_path = proc_dir.join(pid.to_string()).join("exe");
+        let exe = fs::read_link(&exe_path).ok();
+        // let cmdline_path = proc_dir.join(pid.to_string()).join("cmdline");
+        // let cmdline = fs::read_to_string(cmdline_path)
+        //     .unwrap_or_default()
+        //     .replace('\0', " ");
+        // let comm_path = proc_dir.join(pid.to_string()).join("comm");
+        // let comm = fs::read_to_string(comm_path).unwrap_or_default();
+        process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, already_seen)?;
+        // println!(
+        //     "- hidden {}[{}] is running {:?}: {}",
+        //     comm.trim(),
+        //     pid,
+        //     exe,
+        //     cmdline
+        // );
+    }
+
     Ok(())
 }
 
@@ -350,7 +412,7 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
             _ => {
                 if !PID.is_match(&p) { continue };
                 let bin = push_file_path(p, "/exe")?;
-                process_process(&p, &bin, already_seen)?;
+                process_process(&pdt, &p, &bin, already_seen)?;
                 match process_file("Process", &bin, already_seen)  {
                     Ok(_) => continue,
                     Err(_) => continue,
@@ -595,7 +657,7 @@ fn main() -> std::io::Result<()> {
             Ok(f) => f,
             Err(_e) => continue};
     }
-    // WARNING: searches entire directory structure
+    find_rootkit_hidden_procs(&mut already_seen)?;
     if ARGS.flag_suidsgid {
         find_suid_sgid(&mut already_seen)?; 
     }
