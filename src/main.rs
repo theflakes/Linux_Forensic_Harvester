@@ -499,7 +499,7 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
     based upon a byte by byte comparison
     See: https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
 */
-fn get_rootkit_hidden_file_data(file_path: &Path) -> std::io::Result<()> {
+fn get_rootkit_hidden_file_data(file_path: &Path, size: u64, size_read: u64) -> std::io::Result<()> {
     let file = fs::File::open(file_path)?;
     let contents = read_file_bytes(&file)?;
     let mmap = unsafe { MmapOptions::new().map(&file)? };
@@ -510,6 +510,14 @@ fn get_rootkit_hidden_file_data(file_path: &Path) -> std::io::Result<()> {
             break;
         }
     }
+    if differences.is_empty() { return Ok(()) }
+    TxRootkit::new(*IS_ROOT, 
+                    "File".to_string(), 
+                    "Rootkit".to_string(), 
+                    get_now()?, 
+                    (file_path.to_string_lossy()).into_owned(), 
+                    size, 
+                    size_read).report_log();
     TxFileContent::new(*IS_ROOT, 
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
@@ -529,13 +537,12 @@ fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
             find_paths(&data, already_seen)?;
+            let size_read =  data.len() as u64;
             // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
             // See: https://github.com/sandflysecurity/sandfly-file-decloak
-            let size_read =  data.len() as u64;
-            if size > size_read + 1 {
-                TxRootkit::new(*IS_ROOT, "File".to_string(), "Rootkit".to_string(), 
-                    get_now()?, path.to_string(), size, size_read);
-                get_rootkit_hidden_file_data(file_path)?;
+            if size > size_read + 4 {
+                //println!("{} - {} = {}", size, size_read, size - size_read);
+                get_rootkit_hidden_file_data(file_path, size, size_read)?;
             }
             if size_read < ARGS.flag_max { find_interesting(path, &data)? };
             drop(data);
