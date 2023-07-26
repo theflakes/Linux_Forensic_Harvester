@@ -35,6 +35,8 @@ use std::process;
 use memmap2::{Mmap, MmapOptions};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashSet;
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader};
 
 lazy_static! {
     pub static ref IS_ROOT: bool = Uid::effective().is_root();
@@ -340,20 +342,7 @@ fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<
         }
         let exe_path = proc_dir.join(pid.to_string()).join("exe");
         let exe = fs::read_link(&exe_path).ok();
-        // let cmdline_path = proc_dir.join(pid.to_string()).join("cmdline");
-        // let cmdline = fs::read_to_string(cmdline_path)
-        //     .unwrap_or_default()
-        //     .replace('\0', " ");
-        // let comm_path = proc_dir.join(pid.to_string()).join("comm");
-        // let comm = fs::read_to_string(comm_path).unwrap_or_default();
         process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, already_seen)?;
-        // println!(
-        //     "- hidden {}[{}] is running {:?}: {}",
-        //     comm.trim(),
-        //     pid,
-        //     exe,
-        //     cmdline
-        // );
     }
 
     Ok(())
@@ -649,6 +638,64 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
 
+fn examine_kernel_taint() -> std::io::Result<()> {
+    let mut table = HashMap::new();
+    table.insert(0, "proprietary module was loaded");
+    table.insert(1, "module was force loaded");
+    table.insert(2, "kernel running on an out of specification system");
+    table.insert(3, "module was force unloaded");
+    table.insert(4, "processor reported a Machine Check Exception (MCE)");
+    table.insert(5, "bad page referenced or some unexpected page flags");
+    table.insert(6, "taint requested by userspace application");
+    table.insert(7, "kernel died recently, i.e. there was an OOPS or BUG");
+    table.insert(8, "ACPI table overridden by user");
+    table.insert(9, "kernel issued warning");
+    table.insert(10, "staging driver was loaded");
+    table.insert(11, "workaround for bug in platform firmware applied");
+    table.insert(12, "externally-built (out-of-tree) module was loaded");
+    table.insert(13, "unsigned module was loaded");
+    table.insert(14, "soft lockup occurred");
+    table.insert(15, "kernel has been live patched");
+    table.insert(16, "auxiliary taint, defined for and used by distros");
+    table.insert(17, "kernel was built with the struct randomization plugin");
+    table.insert(18, "an in-kernel test has been run");
+
+    let taint = fs::read_to_string("/proc/sys/kernel/tainted").unwrap();
+    let taint = taint.trim().parse::<u32>().unwrap();
+    
+    if taint == 0 { return Ok(()); }
+    let is_tainted = true;
+
+    let mut output = String::new();
+    output.push_str(&format!("kernel taint value: {}\n", taint));
+    for i in 1..=18 {
+        let bit = i - 1;
+        let match_ = (taint >> bit) & 1;
+        if match_ == 0 {
+            continue;
+        }
+        output.push_str(&format!("* matches bit {}: {}\n", bit, table[&bit]));
+    }
+    output.push_str("\n");
+    output.push_str("dmesg:\n");
+    
+    let file = fs::File::open("/var/log/dmesg").unwrap();
+    for line in BufReader::new(file).lines() {
+        let line = line.unwrap();
+        if line.contains("taint") {
+            output.push_str(&format!("{}\n", line));
+        }
+    }
+    
+    TxKernelTaint::new(*IS_ROOT, "Rootkit".to_string(), 
+                        "KernelTaint".to_string(), get_now()?, 
+                        is_tainted, taint, output).report_log();
+    
+    Ok(())
+}
+
+
+
 
 // let's start this thing
 fn main() -> std::io::Result<()> {
@@ -660,7 +707,10 @@ fn main() -> std::io::Result<()> {
             Ok(f) => f,
             Err(_e) => continue};
     }
+
     find_rootkit_hidden_procs(&mut already_seen)?;
+    examine_kernel_taint();
+    
     if ARGS.flag_suidsgid {
         find_suid_sgid(&mut already_seen)?; 
     }

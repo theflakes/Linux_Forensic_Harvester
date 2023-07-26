@@ -261,6 +261,44 @@ impl TxRootkit {
     }
 }
 
+// used when a file is possibly holding hidden data (rootkit)
+#[derive(Serialize)]
+pub struct TxKernelTaint {
+    pub run_as_root: bool,
+    pub parent_data_type: String,
+    #[serde(default = "KernelTaint")]
+    pub data_type: String,
+    pub timestamp: String,
+    is_tainted: bool,
+    pub taint_value: u32,
+    pub info: String
+}
+impl TxKernelTaint {
+    pub fn new(
+            run_as_root: bool,
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            is_tainted: bool,
+            taint_value: u32,
+            info: String) -> TxKernelTaint {
+        TxKernelTaint {
+            run_as_root,
+            parent_data_type,
+            data_type,
+            timestamp,
+            is_tainted,
+            taint_value,
+            info
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
 // holds symlink metdata
 #[derive(Serialize)]
 pub struct TxLink {
