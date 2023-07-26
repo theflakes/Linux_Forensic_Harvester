@@ -42,7 +42,6 @@ lazy_static! {
     pub static ref IS_ROOT: bool = Uid::effective().is_root();
 }
 
-const MAX_DIR_DEPTH: usize = 5;     // Max number of sub directories to traverse
 // file paths we want to watch all files in
 const WATCH_PATHS: [&str; 14] = [
     "/etc",
@@ -591,7 +590,7 @@ fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut Vec<Str
         "/etc/cron.d" => process_cron(&pdt, path, &mut already_seen)?,
         "/var/spool/cron" => process_cron(&pdt, path, &mut already_seen)?,
         _ => for entry in WalkDir::new(path)
-                    .max_depth(MAX_DIR_DEPTH)
+                    .max_depth(ARGS.flag_depth)
                     .into_iter()
                     .filter_map(|e| e.ok()) {
                 process_file(&pdt, entry.path(), &mut already_seen)?;

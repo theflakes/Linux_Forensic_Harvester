@@ -21,15 +21,16 @@ Linux Forensic Harvester
 If not run as root, not all telemetry can be harvested.
 
 Usage:
-  lin_fh [--ip <ip> --port <port>]
+  lin_fh [--ip <ip> --port <port>] [--depth <depth>]
   lin_fh [--ip <ip> --port <port>] [--limit]
   lin_fh [--ip <ip> --port <port>] [--suidsgid] [--limit]
   lin_fh --suidsgid [--limit]
-  lin_fh --max <bytes> [--limit]
+  lin_fh --max <bytes> [--limit] [-d <depth>]
   lin_fh --limit
   lin_fh --help
 
 Options:
+  -d, --depth <depth>   Max directory depth to traverse [default: 5]
   -h, --help            Print help
   -i, --ip <ip>         IP address to send output to [default: NONE]
   -p, --port <port>     Destination port to send output to [default: 80]
@@ -64,6 +65,7 @@ pub struct Args {
     flag_ip: String,
     flag_port: u16,
     flag_limit: bool,
+    pub flag_depth: usize,
     pub flag_max: u64,
     pub flag_suidsgid: bool
 }
