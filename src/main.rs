@@ -639,26 +639,26 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
 }
 
 fn examine_kernel_taint() -> std::io::Result<()> {
-    let mut table = HashMap::new();
-    table.insert(0, "proprietary module was loaded");
-    table.insert(1, "module was force loaded");
-    table.insert(2, "kernel running on an out of specification system");
-    table.insert(3, "module was force unloaded");
-    table.insert(4, "processor reported a Machine Check Exception (MCE)");
-    table.insert(5, "bad page referenced or some unexpected page flags");
-    table.insert(6, "taint requested by userspace application");
-    table.insert(7, "kernel died recently, i.e. there was an OOPS or BUG");
-    table.insert(8, "ACPI table overridden by user");
-    table.insert(9, "kernel issued warning");
-    table.insert(10, "staging driver was loaded");
-    table.insert(11, "workaround for bug in platform firmware applied");
-    table.insert(12, "externally-built (out-of-tree) module was loaded");
-    table.insert(13, "unsigned module was loaded");
-    table.insert(14, "soft lockup occurred");
-    table.insert(15, "kernel has been live patched");
-    table.insert(16, "auxiliary taint, defined for and used by distros");
-    table.insert(17, "kernel was built with the struct randomization plugin");
-    table.insert(18, "an in-kernel test has been run");
+    let mut taint_bits = HashMap::new();
+    taint_bits.insert(0, "proprietary module was loaded");
+    taint_bits.insert(1, "module was force loaded");
+    taint_bits.insert(2, "kernel running on an out of specification system");
+    taint_bits.insert(3, "module was force unloaded");
+    taint_bits.insert(4, "processor reported a Machine Check Exception (MCE)");
+    taint_bits.insert(5, "bad page referenced or some unexpected page flags");
+    taint_bits.insert(6, "taint requested by userspace application");
+    taint_bits.insert(7, "kernel died recently, i.e. there was an OOPS or BUG");
+    taint_bits.insert(8, "ACPI table overridden by user");
+    taint_bits.insert(9, "kernel issued warning");
+    taint_bits.insert(10, "staging driver was loaded");
+    taint_bits.insert(11, "workaround for bug in platform firmware applied");
+    taint_bits.insert(12, "externally-built (out-of-tree) module was loaded");
+    taint_bits.insert(13, "unsigned module was loaded");
+    taint_bits.insert(14, "soft lockup occurred");
+    taint_bits.insert(15, "kernel has been live patched");
+    taint_bits.insert(16, "auxiliary taint, defined for and used by distros");
+    taint_bits.insert(17, "kernel was built with the struct randomization plugin");
+    taint_bits.insert(18, "an in-kernel test has been run");
 
     let taint = fs::read_to_string("/proc/sys/kernel/tainted").unwrap();
     let taint = taint.trim().parse::<u32>().unwrap();
@@ -674,7 +674,7 @@ fn examine_kernel_taint() -> std::io::Result<()> {
         if match_ == 0 {
             continue;
         }
-        output.push_str(&format!("* matches bit {}: {}\n", bit, table[&bit]));
+        output.push_str(&format!("* matches bit {}: {}\n", bit, taint_bits[&bit]));
     }
     output.push_str("\n");
     output.push_str("dmesg:\n");
