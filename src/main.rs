@@ -666,30 +666,30 @@ fn examine_kernel_taint() -> std::io::Result<()> {
     if taint == 0 { return Ok(()); }
     let is_tainted = true;
 
-    let mut output = String::new();
-    output.push_str(&format!("kernel taint value: {}\n", taint));
+    let mut results = String::new();
+    results.push_str(&format!("kernel taint value: {}\n", taint));
     for i in 1..=18 {
         let bit = i - 1;
         let match_ = (taint >> bit) & 1;
         if match_ == 0 {
             continue;
         }
-        output.push_str(&format!("* matches bit {}: {}\n", bit, taint_bits[&bit]));
+        results.push_str(&format!("* matches bit {}: {}\n", bit, taint_bits[&bit]));
     }
-    output.push_str("\n");
-    output.push_str("dmesg:\n");
+    results.push_str("\n");
+    results.push_str("dmesg:\n");
     
     let file = fs::File::open("/var/log/dmesg").unwrap();
     for line in BufReader::new(file).lines() {
         let line = line.unwrap();
         if line.contains("taint") {
-            output.push_str(&format!("{}\n", line));
+            results.push_str(&format!("{}\n", line));
         }
     }
     
     TxKernelTaint::new(*IS_ROOT, "Rootkit".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
-                        is_tainted, taint, output).report_log();
+                        is_tainted, taint, results).report_log();
     
     Ok(())
 }
