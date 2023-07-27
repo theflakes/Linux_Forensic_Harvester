@@ -90,12 +90,9 @@ pub fn is_suid_sgid(mode: u32) -> (bool, bool) {
 
 // is a file or directory hidden
 pub fn is_hidden(path: &std::path::PathBuf) -> bool {
-    let path_str = path.to_str().unwrap_or("");
-    let components: Vec<&str> = path_str.split('/').collect();
-    if let Some(last_component) = components.last() {
-        return last_component.starts_with(".");
-    }
-    false
+    path.components()
+        .any(|component| component.as_os_str().to_str()
+        .map_or(false, |s| s.starts_with(".")))
 }
 
 // get handle to a file
