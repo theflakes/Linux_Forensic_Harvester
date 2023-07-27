@@ -316,7 +316,8 @@ pub struct TxLink {
     pub last_write_time: String,
     pub creation_time: String,
     pub size: u64,
-    pub hidden: bool
+    pub hidden: bool,
+    pub target_exists: bool
 }
 impl TxLink {
     pub fn new(
@@ -330,7 +331,8 @@ impl TxLink {
             last_write_time: String,
             creation_time: String,
             size: u64,
-            hidden: bool) -> TxLink {
+            hidden: bool,
+            target_exists: bool) -> TxLink {
         TxLink {
             run_as_root,
             parent_data_type,
@@ -342,7 +344,8 @@ impl TxLink {
             last_write_time,
             creation_time,
             size,
-            hidden
+            hidden,
+            target_exists
         }
     }
 
@@ -455,7 +458,7 @@ pub struct TxLocalUser {
     #[serde(default = "LocalUser")]
     pub data_type: String,
     pub timestamp: String,
-    pub account_name: String,
+    pub name: String,
     pub uid: i32,
     pub gid: i32,
     pub description: String,
@@ -468,7 +471,7 @@ impl TxLocalUser {
             parent_data_type: String,
             data_type: String,
             timestamp: String,
-            account_name: String, 
+            name: String, 
             uid: i32,
             gid: i32, 
             description: String,
@@ -479,7 +482,7 @@ impl TxLocalUser {
             parent_data_type,
             data_type,
             timestamp,
-            account_name,
+            name,
             uid,
             gid,
             description,
@@ -502,8 +505,8 @@ pub struct TxLocalGroup {
     #[serde(default = "LocalGroup")]
     pub data_type: String,
     pub timestamp: String,
-    pub group_name: String,
-    pub gid: String,
+    pub name: String,
+    pub gid: u32,
     pub members: String
 }
 impl TxLocalGroup {
@@ -512,15 +515,15 @@ impl TxLocalGroup {
             parent_data_type: String,
             data_type: String,
             timestamp: String,
-            group_name: String, 
-            gid: String,
+            name: String, 
+            gid: u32,
             members: String) -> TxLocalGroup {
         TxLocalGroup {
             run_as_root,
             parent_data_type,
             data_type,
             timestamp,
-            group_name,
+            name,
             gid,
             members
         }
@@ -690,7 +693,7 @@ pub struct TxCron {
     pub day_of_month: String, 
     pub month: String,
     pub day_of_week: String, 
-    pub account_name: String, 
+    pub name: String, 
     pub command_line: String
 }
 impl TxCron {
@@ -705,7 +708,7 @@ impl TxCron {
             day_of_month: String, 
             month: String,
             day_of_week: String,
-            account_name: String, 
+            name: String, 
             command_line: String) -> TxCron {
         TxCron {
             run_as_root,
@@ -718,7 +721,7 @@ impl TxCron {
             day_of_month,
             month,
             day_of_week,
-            account_name,
+            name,
             command_line
         }
     }

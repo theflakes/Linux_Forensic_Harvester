@@ -436,7 +436,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
     for line in lines {
         let values: Vec<&str> = line.split(":").collect();
         let group_name = values[0].to_string();
-        let gid = values[2].to_string();
+        let gid: u32 = values[2].to_string().parse().unwrap();
         let members = values[3].to_string();
         TxLocalGroup::new(*IS_ROOT, pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
                             group_name, gid, members).report_log();
@@ -539,7 +539,7 @@ fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_
 // harvest a file's metadata
 fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
-    if file_path.is_file() && !already_seen.contains(&p.clone()) {
+    if (file_path.is_symlink() || file_path.is_file()) && !already_seen.contains(&p.clone()) {
         already_seen.push(p);    // track files we've processed so we don't process them more than once
         let (parent_data_type, path) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get sysmlink info and path to linked file
         
@@ -593,6 +593,7 @@ fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut Vec<Str
                     .max_depth(ARGS.flag_depth)
                     .into_iter()
                     .filter_map(|e| e.ok()) {
+                println!("{:?}", entry);
                 process_file(&pdt, entry.path(), &mut already_seen)?;
                 sleep();
             },
@@ -693,6 +694,12 @@ fn examine_kernel_taint() -> std::io::Result<()> {
     Ok(())
 }
 
+fn rootkit_hunt(mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    examine_kernel_taint();
+    find_rootkit_hidden_procs(&mut already_seen)?;
+    Ok(())
+}
+
 
 // let's start this thing
 fn main() -> std::io::Result<()> {
@@ -705,8 +712,7 @@ fn main() -> std::io::Result<()> {
             Err(_e) => continue};
     }
 
-    find_rootkit_hidden_procs(&mut already_seen)?;
-    examine_kernel_taint();
+    rootkit_hunt(&mut already_seen)?;
     
     if ARGS.flag_suidsgid {
         find_suid_sgid(&mut already_seen)?; 

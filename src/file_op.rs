@@ -89,18 +89,13 @@ pub fn is_suid_sgid(mode: u32) -> (bool, bool) {
 }
 
 // is a file or directory hidden
-pub fn is_hidden(file_path: &std::path::PathBuf) -> bool {
-    let path = match file_path.file_name() {
-            Some(o) => o,
-            None => return false
-            };
-    if file_path.is_file() {  // simple check for hidden files and directories
-        path.to_string_lossy().starts_with(".")
-    } else if file_path.is_dir() {
-        path.to_string_lossy().contains("/.")
-    } else {
-        return false
+pub fn is_hidden(path: &std::path::PathBuf) -> bool {
+    let path_str = path.to_str().unwrap_or("");
+    let components: Vec<&str> = path_str.split('/').collect();
+    if let Some(last_component) = components.last() {
+        return last_component.starts_with(".");
     }
+    false
 }
 
 // get handle to a file
@@ -151,8 +146,16 @@ pub fn resolve_link(link_path: &std::path::Path) -> std::io::Result<std::path::P
     Ok(abs.into())
 }
 
+fn link_target_exists(link_path: &std::path::Path) -> bool {
+    if let Ok(link_target) = fs::read_link(link_path) {
+        link_target.exists()
+    } else {
+        false
+    }
+}
+
 // gather metadata for symbolic links
-pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_path: String, hidden: bool) -> std::io::Result<()> {
+pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_path: String, hidden: bool, deleted: bool) -> std::io::Result<()> {
     let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
     if link.created().is_ok() {
         ctime = format_date(link.created()?.into())?;
@@ -161,9 +164,11 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_
     let wtime = format_date(link.modified()?.into())?;
     let size = link.len();
 
-    TxLink::new(*crate::IS_ROOT, pdt.to_string(), "ShellLink".to_string(), get_now()?, 
-                            link_path, file_path, atime, wtime, 
-                            ctime, size, hidden).report_log();
+    TxLink::new(*crate::IS_ROOT, pdt.to_string(), 
+                    "ShellLink".to_string(), get_now()?, 
+                    link_path, file_path, atime, 
+                    wtime, ctime, size, hidden, 
+                    deleted).report_log();
     Ok(())
 }
 
@@ -182,7 +187,8 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
         process_link(pdt, sl, 
                     link_path.to_string_lossy().into(), 
                     path.to_string_lossy().into(), 
-                    is_hidden(&path))?;
+                    is_hidden(&path), 
+                    link_target_exists(link_path))?;
     }
     Ok((parent_data_type, path))
 }
