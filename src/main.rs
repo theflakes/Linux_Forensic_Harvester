@@ -694,8 +694,6 @@ fn examine_kernel_taint() -> std::io::Result<()> {
 }
 
 
-
-
 // let's start this thing
 fn main() -> std::io::Result<()> {
     let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops

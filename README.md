@@ -107,6 +107,13 @@ Information gathered on:
 - Process file (file of the process on disk)
 - Users
 
+## Rootkit detection techniques
+##### See: https://github.com/tstromberg/sunlight/tree/main
+- Searching for and reporting on a file that is larger on disk than when read into memory
+- File data that is found in memory mapped read files not found via a standard file read
+- Tainted kernel module information
+- Hidden processes
+
 Some file contents are examined looking for other interesting strings. For example, if another file is referenced within a file, that file's metadata will also be retreived. Other strings of interest found in file contents are reported: IPs, file paths, URLs, shellcode, Base64 and misc encodings, and UNC paths.  
   
 Process information is retreived via ProcFS parsing.  
