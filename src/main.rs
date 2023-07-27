@@ -593,7 +593,6 @@ fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut Vec<Str
                     .max_depth(ARGS.flag_depth)
                     .into_iter()
                     .filter_map(|e| e.ok()) {
-                println!("{:?}", entry);
                 process_file(&pdt, entry.path(), &mut already_seen)?;
                 sleep();
             },

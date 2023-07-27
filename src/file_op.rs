@@ -151,6 +151,15 @@ fn link_target_exists(link_path: &std::path::Path) -> bool {
     }
 }
 
+fn is_proc_exe_deleted(exe_path: &std::path::Path) -> bool {
+    if exe_path.starts_with("/proc/") && exe_path.ends_with("/exe") {
+        if let Ok(link_target) = fs::read_link(exe_path) {
+            return link_target.to_string_lossy().contains("(deleted)");
+        }
+    }
+    false
+}
+
 // gather metadata for symbolic links
 pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_path: String, hidden: bool, deleted: bool) -> std::io::Result<()> {
     let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
@@ -186,6 +195,9 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
                     path.to_string_lossy().into(), 
                     is_hidden(&path), 
                     link_target_exists(link_path))?;
+        if is_proc_exe_deleted(link_path) {
+
+        }
     }
     Ok((parent_data_type, path))
 }
