@@ -31,12 +31,14 @@ Usage:
   lin_fh [--ip <ip> --port <port>] [--limit]
   lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
   lin_fh (-s, --suidsgid) [--limit]
-  lin_fh --max <bytes> [--limit] [-d <depth>]
-  lin_fh --regex <regex>
-  lin_fh --limit
+  lin_fh (-r <regex> | --regex <regex>) [-ls] [-d <depth>]
+  lin_fh --max <bytes> [--limit] [-d <depth>] [--suidsgid]
+  lin_fh (-l | --limit)
   lin_fh --start <start_time> [-d <depth>]
+  lin_fh --end <start_time> [-d <depth>] [-ls]
   lin_fh --start <start_time> --end <end_time>
   lin_fh -s [-d <depth>]
+  lin_fh [-sl] (-x <hex> | --hex <hex>)
   lin_fh (-h | --help)
 
 Options:
@@ -67,7 +69,7 @@ Options:
                         - This will search the entire '/' including subdirectories
                         - Can take a long time
                         - /dev/, /mnt/, /proc/, /sys/ directories are ignored
-  -x, --hex <string>    Hex search string [default: FF]
+  -x, --hex <hex>       Hex search string [default: FF]
                         - Hex string length must be a multiple of two
                         - format: 0a1b2c3d4e5f
                         - Tag: HexHunt
