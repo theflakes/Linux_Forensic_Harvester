@@ -587,6 +587,8 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>)
         let mode = file.metadata()?.mode();
         let perms = parse_permissions(mode);
         let (is_suid, is_sgid) = is_suid_sgid(mode);
+        if is_suid { tags.push("suid".to_string()) }
+        if is_sgid { tags.push("sgid".to_string()) }
         let (md5, mime_type) = get_file_content_info(&file)?;
 
         // certain files we want to parse explicitely
@@ -598,13 +600,13 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>)
             "/etc/group" => parse_groups(pdt, "/etc/group".into())?,
             "/etc/crontab" => parse_cron(pdt, "/etc/crontab".into())?,
             _ => {
-                tags = watch_file(pdt, orig_path, path_str, &mime_type, size, already_seen)?
+                tags.extend(watch_file(pdt, orig_path, path_str, &mime_type, size, already_seen)?)
             }
         }
         TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
-            nlink, inode, perms, is_suid, is_sgid, tags).report_log();
+            nlink, inode, perms, tags).report_log();
     }
     Ok(())
 }

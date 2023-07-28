@@ -89,6 +89,7 @@ pub fn found_ipv4(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
     Ok(report_finds(pdt, &IPV4, file, text, flag)?)
 }
 
+// Should not match :: as an ipv6 addr
 pub fn found_ipv6(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> 
 {
     lazy_static! {
@@ -102,7 +103,7 @@ pub fn found_ipv6(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
             (?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|      # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
             (?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|      # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
             [0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|           # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
-            :(?:(?::[0-9a-fA-F]{1,4}){1,7})|                           # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
+            :(?:(?::[0-9a-fA-F]{1,4}){1,7})|                           # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       :: - not matched     
             fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|           # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
             ::(?:ffff(?::0{1,4}){0,1}:){0,1}
             (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}

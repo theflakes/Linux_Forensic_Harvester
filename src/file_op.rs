@@ -83,7 +83,7 @@ pub fn parse_permissions(mode: u32) -> String {
 // find if a file has the suid or sgid bit set
 pub fn is_suid_sgid(mode: u32) -> (bool, bool) {
     return (
-        if (mode & S_ISUID as u32) != 0 { true } else { false }, 
+        if (mode & S_ISUID as u32) != 0 { true } else { false },
         if (mode & S_ISGID as u32) != 0 { true } else { false }
         )
 }

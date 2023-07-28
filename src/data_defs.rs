@@ -26,16 +26,18 @@ Linux Forensic Harvester
 If not run as root, not all telemetry can be harvested.
 
 Usage:
+  lin_fh -d <depth>
   lin_fh [--ip <ip> --port <port>] [--depth <depth>]
   lin_fh [--ip <ip> --port <port>] [--limit]
-  lin_fh [--ip <ip> --port <port>] [--suidsgid] [--limit]
-  lin_fh --suidsgid [--limit]
+  lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
+  lin_fh (-s, --suidsgid) [--limit]
   lin_fh --max <bytes> [--limit] [-d <depth>]
   lin_fh --regex <regex>
   lin_fh --limit
-  lin_fh --start <start_time> -d <depth>
+  lin_fh --start <start_time> [-d <depth>]
   lin_fh --start <start_time> --end <end_time>
-  lin_fh --help
+  lin_fh -s [-d <depth>]
+  lin_fh (-h | --help)
 
 Options:
   -d, --depth <depth>   Max directory depth to traverse [default: 5]
@@ -169,8 +171,6 @@ pub struct TxFile {
     pub nlink: u64, // number of hard links to file
     pub inode: u64,
     pub permissions: String,
-    pub suid: bool,
-    pub sgid: bool,
     pub tags: Vec<String>,
 }
 impl TxFile {
@@ -192,8 +192,6 @@ impl TxFile {
             nlink: u64,
             inode: u64,
             permissions: String,
-            suid: bool,
-            sgid: bool,
             tags: Vec<String>,) -> TxFile {
         TxFile {
             run_as_root,
@@ -213,8 +211,6 @@ impl TxFile {
             nlink,
             inode,
             permissions,
-            suid,
-            sgid,
             tags
         }
     }
