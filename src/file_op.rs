@@ -4,7 +4,7 @@ extern crate md5;
 extern crate file;
 extern crate libc;
 
-use crate::{data_def::*, mutate::*, time::*};
+use crate::{data_defs::*, mutate::*, time::*};
 use std::fs::{self, File};
 use std::io::{Read, BufRead, BufReader};
 use std::io;
@@ -171,7 +171,7 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String,
     let atime = format_date(link.accessed()?.into())?;
     let wtime = format_date(link.modified()?.into())?;
     let size = link.len();
-
+    if not_in_time_window(&atime, &ctime, &wtime)? { return Ok(()) }
     TxLink::new(*crate::IS_ROOT, pdt.to_string(), 
                     "ShellLink".to_string(), get_now()?, 
                     link_path, file_path, atime, 
@@ -204,6 +204,14 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
                     tags)?;
     }
     Ok((parent_data_type, path))
+}
+
+pub fn not_in_time_window(atime: &str, ctime: &str, wtime: &str) -> std::io::Result<bool> {
+    if !in_time_window(&ctime)?
+        && !in_time_window(&atime)? 
+        && !in_time_window(&wtime)? 
+            { return Ok(true) };
+    Ok(false)
 }
 
 // find the parent directory of a given dir or file

@@ -17,17 +17,19 @@ extern crate memmap2;
 
 #[macro_use] extern crate lazy_static;
 
-mod data_def;
+mod data_defs;
 mod file_op;
 mod mutate;
 mod time;
+mod hunts;
 
 use chrono::format::format;
+use hunts::*;
 use serde::de::IntoDeserializer;
 use walkdir::WalkDir;
-use std::{fs::{self, DirEntry}, path::{PathBuf, Path}};
+use std::{fs::{self, DirEntry, File}, path::{PathBuf, Path}};
 use regex::Regex;
-use {data_def::*, file_op::*, mutate::*, time::*};
+use {data_defs::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
 use nix::unistd::Uid;
 use std::sync::Mutex;
@@ -88,62 +90,82 @@ const WATCH_FILE_TYPES: [&str; 25] = [
     "yaml",
     ];
 
+fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<Vec<String>> {
+    let mut tags: Vec<String> = Vec::new();
+    if found_base64(pdt, file, text, &"base64")? { tags.push("base64".to_string()) }
+    if found_email(pdt, file, text, &"email")? { tags.push("email".to_string()) }
+    if found_encoding(pdt, file, text, &"encoding")? { tags.push("encoding".to_string()) }
+    if found_hex(&text.as_bytes().to_vec(), &FIND_HEX)? {tags.push("hex".to_string())}
+    if found_ipv4(pdt, file, text, &"ipv4")? { tags.push("ipv4".to_string()) }
+    if found_ipv6(pdt, file, text, &"ipv6")? { tags.push("ipv6".to_string()) }
+    if found_obfuscation(pdt, file, text, &"obfuscation")? { tags.push("obfuscation".to_string()) }
+    if found_regex(pdt, file, text, &"regex")? { tags.push("regex".to_string()) }
+    if found_righttoleft(pdt, file, file, &"rightleft")? { tags.push("rightleft".to_string()) }
+    if found_shell(pdt, file, text, &"shell")? { tags.push("shell".to_string()) }
+    if found_shellcode(pdt, file, text, &"shellcode")? { tags.push("shellcode".to_string()) }
+    if found_suspicious(pdt, file, text, &"suspicious")? { tags.push("suspicious".to_string()) }
+    if found_unc(pdt, file, text, &"unc")? { tags.push("unc".to_string()) }
+    if found_url(pdt, file, text, &"url")? { tags.push("url".to_string()) }
+    if found_webshell(pdt, file, text, &"webshell")? { tags.push("webshell".to_string()) }
+    Ok(tags)
+}
+
 /*
     regex's to find interesting strings in files
     capture and report the line that the interesting string is found in
 */
-fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
-    lazy_static! {
-        // use \x20 for matching spaces when using "x" directive that doesn't allow spaces in regex
-        static ref RE: Regex = Regex::new(r#"(?mix)
-            (?:^.*(?:
-                (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})|        # IPv4 address
-                (?:                                                                                                 # IPv6 https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
-                    (?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|                                                     # 1:2:3:4:5:6:7:8
-                    (?:[0-9a-fA-F]{1,4}:){1,7}:|                                                                    # 1::                              1:2:3:4:5:6:7::
-                    (?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|                                                    # 1::8             1:2:3:4:5:6::8  1:2:3:4:5:6::8
-                    (?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|                                           # 1::7:8           1:2:3:4:5::7:8  1:2:3:4:5::8
-                    (?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|                                           # 1::6:7:8         1:2:3:4::6:7:8  1:2:3:4::8
-                    (?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|                                           # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
-                    (?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|                                           # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
-                    [0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|                                                # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
-                    :(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|                                                              # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
-                    fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|                                                # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
-                    ::(?:ffff(?::0{1,4}){0,1}:){0,1}
-                    (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
-                    (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|                                                   # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255  (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
-                    (?:[0-9a-fA-F]{1,4}:){1,4}:
-                    (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
-                    (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])                                                    # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
-                )|
-                (?:https?|ftp|smb|cifs)://|                                                                         # URL
-                \\\\\w+.+\\\w+|                                                                                     # UNC
-                (?:^|[\x20"':=!|])(?:/[\w.-]+)+|                                                                    # file path
-                (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
-                [a-z0-9]{300}|                                                                                      # basic encoding
-                (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}|                                                    # shell code
-                [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}|                                                       # email
-                (?:                                                                                                 # Web shells
-                    # PHP / Perl / JSP possible web shells often used functions
-                    eval\(|exec(?:\(|\.)|passthru|base64(?:_decode)|system|p?(?:roc_)?open|                        
-                    preg_replace|`.{2,50}`|show_source|parse_ini_file|assert|gzdeflate|
-                    str_rot13|StreamConnector|start\(|
+// fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
+//     lazy_static! {
+//         // use \x20 for matching spaces when using "x" directive that doesn't allow spaces in regex
+//         static ref RE: Regex = Regex::new(r#"(?mix)
+//             (?:^.*(?:
+//                 (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})|        # IPv4 address
+//                 (?:                                                                                                 # IPv6 https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
+//                     (?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|                                                     # 1:2:3:4:5:6:7:8
+//                     (?:[0-9a-fA-F]{1,4}:){1,7}:|                                                                    # 1::                              1:2:3:4:5:6:7::
+//                     (?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|                                                    # 1::8             1:2:3:4:5:6::8  1:2:3:4:5:6::8
+//                     (?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|                                           # 1::7:8           1:2:3:4:5::7:8  1:2:3:4:5::8
+//                     (?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|                                           # 1::6:7:8         1:2:3:4::6:7:8  1:2:3:4::8
+//                     (?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|                                           # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
+//                     (?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|                                           # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
+//                     [0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|                                                # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
+//                     :(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|                                                              # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
+//                     fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|                                                # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
+//                     ::(?:ffff(?::0{1,4}){0,1}:){0,1}
+//                     (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+//                     (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|                                                   # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255  (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+//                     (?:[0-9a-fA-F]{1,4}:){1,4}:
+//                     (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+//                     (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])                                                    # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+//                 )|
+//                 (?:https?|ftp|smb|cifs)://|                                                                         # URL
+//                 \\\\\w+.+\\\w+|                                                                                     # UNC
+//                 (?:^|[\x20"':=!|])(?:/[\w.-]+)+|                                                                    # file path
+//                 (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
+//                 [a-z0-9]{300}|                                                                                      # basic encoding
+//                 (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}|                                                    # shell code
+//                 [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}|                                                       # email
+//                 (?:                                                                                                 # Web shells
+//                     # PHP / Perl / JSP possible web shells often used functions
+//                     eval\(|exec(?:\(|\.)|passthru|base64(?:_decode)|system|p?(?:roc_)?open|                        
+//                     preg_replace|`.{2,50}`|show_source|parse_ini_file|assert|gzdeflate|
+//                     str_rot13|StreamConnector|start\(|
 
-                    # ASP possible web shells often used functions
-                    creatobject|\.run
-                )
-            ).*$)                                                                    
-        "#).expect("bad regex");
-    }
+//                     # ASP possible web shells often used functions
+//                     creatobject|\.run
+//                 )
+//             ).*$)                                                                    
+//         "#).expect("bad regex");
+//     }
 
-    for c in RE.captures_iter(text) {
-        let line = &c[0];
-        TxFileContent::new(*IS_ROOT, "".to_string(), "FileContent".to_string(), 
-                            get_now()?, file.to_string(), line.into(), 
-                            "".to_string(), Vec::new()).report_log();
-    }
-    Ok(())
-}
+//     for c in RE.captures_iter(text) {
+//         let line = &c[0];
+//         TxFileContent::new(*IS_ROOT, "".to_string(), "FileContent".to_string(), 
+//                             get_now()?, file.to_string(), line.into(), 
+//                             "".to_string(), Vec::new()).report_log();
+//     }
+//     Ok(())
+// }
 
 /*
     identify files being referenced in the file content 
@@ -247,7 +269,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd), Vec::new()).report_log();
-    process_file(&pdt, Path::new(path), already_seen)?;
+    process_file(&data_type, Path::new(path), already_seen)?;
     Ok(())
 }
 
@@ -473,7 +495,7 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir()) {
             parse_cron(pdt, &entry.path().to_string_lossy())?;
-            match process_file(&pdt, entry.path(), &mut already_seen) {
+            match process_file("Cron", entry.path(), &mut already_seen) {
                 Ok(_) => continue,
                 Err(_) => continue,
             };
@@ -523,39 +545,42 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<
     check if a given file is one we want to inspect the contents of 
     for interesting strings and references to other files
 */
-fn watch_file(file_path: &Path, path: &str, mime_type: &str, size: u64, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u64, already_seen: &mut Vec<String>) -> std::io::Result<(Vec<String>)> {
+    let mut tags: Vec<String> = Vec::new();
     if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
             find_paths(&data, already_seen)?;
             let size_read = data.len() as u64;
             get_rootkit_hidden_file_data(file_path, size)?;
-            if size_read < ARGS.flag_max { find_interesting(path, &data)? };
+            if size_read < ARGS.flag_max { tags = run_hunts(pdt, path, &data)? };
         }
     }
-    Ok(())
+    Ok(tags)
 }
 
 // harvest a file's metadata
-fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
     if (file_path.is_symlink() || file_path.is_file()) && !already_seen.contains(&p.clone()) {
         already_seen.push(p);    // track files we've processed so we don't process them more than once
-        let (parent_data_type, path) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get sysmlink info and path to linked file
+        let (parent_data_type, path_buf) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get symlink info and path to linked file
         
-        let file = open_file(file_path)?;
+        let file = open_file(&path_buf)?;
         let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
         if file.metadata()?.created().is_ok() { 
             ctime = format_date(file.metadata()?.created()?.into())?; 
         }
         let atime = format_date(file.metadata()?.accessed()?.into())?;
         let wtime = format_date(file.metadata()?.modified()?.into())?;
+        if not_in_time_window(&atime, &ctime, &wtime)? { return Ok(()) }
+        let mut tags: Vec<String> = Vec::new(); 
         let size = file.metadata()?.len();
         let uid = file.metadata()?.uid();
         let gid = file.metadata()?.gid();
         let nlink = file.metadata()?.nlink();
         let inode = file.metadata()?.ino();
-        let path_buf = match path.to_str() {
+        let path_str = match path_buf.to_str() {
             Some(s) => s,
             None => ""
             };
@@ -563,22 +588,23 @@ fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> 
         let perms = parse_permissions(mode);
         let (is_suid, is_sgid) = is_suid_sgid(mode);
         let (md5, mime_type) = get_file_content_info(&file)?;
-        TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
-                    path_buf.into(), md5, mime_type.clone(), atime, wtime, 
-                    ctime, size, is_hidden(&path), uid, gid, 
-                    nlink, inode, perms, is_suid, is_sgid, Vec::new()).report_log();
 
         // certain files we want to parse explicitely
         let orig_path = file_path.clone();
         let path = file_path.to_string_lossy();
+        if pdt.is_empty() { pdt = &"File" }
         match path.as_ref() {
             "/etc/passwd" => parse_users(pdt, "/etc/passwd".into())?,
             "/etc/group" => parse_groups(pdt, "/etc/group".into())?,
             "/etc/crontab" => parse_cron(pdt, "/etc/crontab".into())?,
             _ => {
-                watch_file(orig_path, path_buf, &mime_type, size, already_seen)?
+                tags = watch_file(pdt, orig_path, path_str, &mime_type, size, already_seen)?
             }
         }
+        TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
+            path_str.into(), md5, mime_type.clone(), atime, wtime, 
+            ctime, size, is_hidden(&path_buf), uid, gid, 
+            nlink, inode, perms, is_suid, is_sgid, tags).report_log();
     }
     Ok(())
 }

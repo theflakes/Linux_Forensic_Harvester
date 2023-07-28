@@ -3,12 +3,17 @@ extern crate serde_derive;      // needed for json serialization
 extern crate serde_json;        // needed for json serialization
 extern crate docopt;
 extern crate nix;
+extern crate chrono;
 
+use crate::mutate::hex_to_bytes;
+
+use chrono::*;
 use serde::Serialize;
 use serde_derive::Deserialize;
 use std::io::prelude::Write;
 use docopt::Docopt;
 use std::thread;
+use regex::Regex;
 
 pub const USAGE: &'static str = "
 Linux Forensic Harvester
@@ -26,7 +31,10 @@ Usage:
   lin_fh [--ip <ip> --port <port>] [--suidsgid] [--limit]
   lin_fh --suidsgid [--limit]
   lin_fh --max <bytes> [--limit] [-d <depth>]
+  lin_fh --regex <regex>
   lin_fh --limit
+  lin_fh --start <start_time> -d <depth>
+  lin_fh --start <start_time> --end <end_time>
   lin_fh --help
 
 Options:
@@ -39,10 +47,28 @@ Options:
                         of for interesting strings [default: 100000]
                         - Text files will always be searched for references
                           to other files.
+  Time window:
+    This option will compare the specified date window to the file's 
+    ctime, atime, or mtime and only output logs where the one of the dates falls 
+    within that window. Window start is inclusive, window end is exclusive.
+  --start <UTC_start_time>        Start of time window: [default: 0000-01-01T00:00:00]
+                                format: YYYY-MM-DDTHH:MM:SS
+  --end <UTC_end_time>            End of time window: [default: 9999-12-31T23:59:59]
+                                format: YYYY-MM-DDTHH:MM:SS
+  Custom hunts:
+  -r, --regex <regex>   Custom regex [default: $^]
+                        - Search file content using custom regex
+                        - Does not support look aheads/behinds/...
+                        - Uses Rust regex crate (case insensitive and multiline)
+                        - Tag: RegexHunt
   -s, --suidsgid        Search for suid and sgid files
                         - This will search the entire '/' including subdirectories
-                        - Can take a very long time
+                        - Can take a long time
                         - /dev/, /mnt/, /proc/, /sys/ directories are ignored
+  -x, --hex <string>    Hex search string [default: FF]
+                        - Hex string length must be a multiple of two
+                        - format: 0a1b2c3d4e5f
+                        - Tag: HexHunt
 
 Note:
   If not run as root some telemetry cannot be harvested.
@@ -57,7 +83,7 @@ Note:
 
   Files larger than 256MB will not be hashed.
 
-  Text files larger than '--max' will not be inspected for interesting strings.
+  Files larger than '--max' will not be inspected for interesting strings.
 ";
 
 #[derive(Debug, Deserialize)]
@@ -67,13 +93,24 @@ pub struct Args {
     flag_limit: bool,
     pub flag_depth: usize,
     pub flag_max: u64,
-    pub flag_suidsgid: bool
+    pub flag_regex: String,
+    pub flag_hex: String,
+    pub flag_suidsgid: bool,
+
+    // time window
+    pub flag_start: String,
+    pub flag_end: String,
 }
 
 lazy_static! { 
     pub static ref ARGS: Args = Docopt::new(USAGE)
                     .and_then(|d| d.deserialize())
                     .unwrap_or_else(|e| e.exit());
+                
+    pub static ref CUSTOM_REGEX: Regex = Regex::new(&format!(r"{}{}", "(?mi)".to_string(), ARGS.flag_regex)).expect("Invalid Regex");
+    pub static ref TIME_START: DateTime<Utc> = Utc.datetime_from_str(&ARGS.flag_start, "%Y-%m-%dT%H:%M:%S").expect("Invalid start time!!!");
+    pub static ref TIME_END: DateTime<Utc> = Utc.datetime_from_str(&ARGS.flag_end, "%Y-%m-%dT%H:%M:%S").expect("Invalid end time!!!");
+    pub static ref FIND_HEX: Vec<u8> = hex_to_bytes(&ARGS.flag_hex).expect("Invalid hex string!!!");
 }
 
 pub fn sleep() {
