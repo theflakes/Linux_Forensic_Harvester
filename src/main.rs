@@ -140,7 +140,7 @@ fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
         let line = &c[0];
         TxFileContent::new(*IS_ROOT, "".to_string(), "FileContent".to_string(), 
                             get_now()?, file.to_string(), line.into(), 
-                            "".to_string()).report_log();
+                            "".to_string(), Vec::new()).report_log();
     }
     Ok(())
 }
@@ -229,7 +229,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     TxNetConn::new(*IS_ROOT, "Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7])?, local_ip, 
                                     local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
-                                    to_int128(&inode)?).report_log();
+                                    to_int128(&inode)?, Vec::new()).report_log();
                 }
                 matched = true;
             }
@@ -246,7 +246,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     let data_type = "ProcessOpenFile".to_string();
     TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
-                        path_exists(fd)).report_log();
+                        path_exists(fd), Vec::new()).report_log();
     process_file(&pdt, Path::new(path), already_seen)?;
     Ok(())
 }
@@ -295,7 +295,7 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, already_seen: &mut
     TxProcess::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
-                    cwd.to_string_lossy().into()).report_log();
+                    cwd.to_string_lossy().into(), Vec::new()).report_log();
     if pdt.eq("Rootkit") { data_type = "Rootkit".to_string(); }
     process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
     Ok(())
@@ -360,7 +360,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         let state = values[4].to_string();
         let offset = values[5].to_string();
         TxLoadedModule::new(*IS_ROOT, pdt.to_string(), "KernelModule".to_string(), get_now()?, 
-                            name, size, loaded, dependencies, state, offset).report_log();
+                            name, size, loaded, dependencies, state, offset, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -375,7 +375,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         let file_system_type = values[2].to_string();
         let mount_options = values[3].replace(",", ", ").trim().to_string();
         TxMountPoint::new(*IS_ROOT, pdt.to_string(), "MountPoint".to_string(), get_now()?, 
-                            name, mount_point, file_system_type, mount_options).report_log();
+                            name, mount_point, file_system_type, mount_options, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -425,7 +425,7 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let shell = values[6].to_string();
         TxLocalUser::new(*IS_ROOT, pdt.to_string(), "LocalUser".to_string(), get_now()?, 
                         account_name, uid, gid, description, home_directory, 
-                        shell).report_log();
+                        shell, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -439,7 +439,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let gid: u32 = values[2].to_string().parse().unwrap();
         let members = values[3].to_string();
         TxLocalGroup::new(*IS_ROOT, pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
-                            group_name, gid, members).report_log();
+                            group_name, gid, members, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -460,7 +460,7 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
         let command_line = fields[6].to_string();
         TxCron::new(*IS_ROOT, pdt.to_string(), "Cron".to_string(), get_now()?, 
                     path.to_string(), minute, hour, day_of_month, month, 
-                    day_of_week, account_name, command_line).report_log();
+                    day_of_week, account_name, command_line, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -507,7 +507,7 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<
                     get_now()?, 
                     (file_path.to_string_lossy()).into_owned(), 
                     size, 
-                    size_read).report_log();
+                    size_read, Vec::new()).report_log();
     if differences.is_empty() { return Ok(()) }
     TxFileContent::new(*IS_ROOT, 
         "Rootkit".to_string(), 
@@ -515,7 +515,7 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<
         get_now()?, 
         file_path.to_string_lossy().into_owned(), 
         String::from_utf8_lossy(&differences).into_owned(), 
-        u8_to_hex_string(&differences)?).report_log();
+        u8_to_hex_string(&differences)?, Vec::new()).report_log();
     Ok(())
 }
 
@@ -566,7 +566,7 @@ fn process_file(pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> 
         TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
                     path_buf.into(), md5, mime_type.clone(), atime, wtime, 
                     ctime, size, is_hidden(&path), uid, gid, 
-                    nlink, inode, perms, is_suid, is_sgid).report_log();
+                    nlink, inode, perms, is_suid, is_sgid, Vec::new()).report_log();
 
         // certain files we want to parse explicitely
         let orig_path = file_path.clone();
@@ -688,7 +688,8 @@ fn examine_kernel_taint() -> std::io::Result<()> {
     
     TxKernelTaint::new(*IS_ROOT, "Rootkit".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
-                        is_tainted, taint, results).report_log();
+                        is_tainted, taint, results, 
+                        Vec::new()).report_log();
     
     Ok(())
 }

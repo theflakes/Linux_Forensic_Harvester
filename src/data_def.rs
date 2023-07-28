@@ -133,7 +133,8 @@ pub struct TxFile {
     pub inode: u64,
     pub permissions: String,
     pub suid: bool,
-    pub sgid: bool
+    pub sgid: bool,
+    pub tags: Vec<String>,
 }
 impl TxFile {
     pub fn new(
@@ -155,7 +156,8 @@ impl TxFile {
             inode: u64,
             permissions: String,
             suid: bool,
-            sgid: bool) -> TxFile {
+            sgid: bool,
+            tags: Vec<String>,) -> TxFile {
         TxFile {
             run_as_root,
             parent_data_type,
@@ -175,7 +177,8 @@ impl TxFile {
             inode,
             permissions,
             suid,
-            sgid
+            sgid,
+            tags
         }
     }
 
@@ -196,7 +199,8 @@ pub struct TxFileContent {
     pub timestamp: String,
     pub path: String,
     pub line: String,
-    pub bytes: String
+    pub bytes: String,
+    pub tags: Vec<String>
 }
 impl TxFileContent {
     pub fn new(
@@ -206,7 +210,8 @@ impl TxFileContent {
             timestamp: String,
             path: String,
             line: String,
-            bytes: String) -> TxFileContent {
+            bytes: String,
+            tags: Vec<String>,) -> TxFileContent {
         TxFileContent {
             run_as_root,
             parent_data_type,
@@ -214,7 +219,8 @@ impl TxFileContent {
             timestamp,
             path,
             line,
-            bytes
+            bytes,
+            tags
         }
     }
 
@@ -235,7 +241,8 @@ pub struct TxRootkit {
     pub timestamp: String,
     pub path: String,
     pub size: u64,
-    pub size_read: u64
+    pub size_read: u64,
+    pub tags: Vec<String>
 }
 impl TxRootkit {
     pub fn new(
@@ -245,7 +252,8 @@ impl TxRootkit {
             timestamp: String,
             path: String,
             size: u64,
-            size_read: u64) -> TxRootkit {
+            size_read: u64,
+            tags: Vec<String>) -> TxRootkit {
         TxRootkit {
             run_as_root,
             parent_data_type,
@@ -253,7 +261,8 @@ impl TxRootkit {
             timestamp,
             path,
             size,
-            size_read
+            size_read,
+            tags
         }
     }
 
@@ -273,7 +282,8 @@ pub struct TxKernelTaint {
     pub timestamp: String,
     is_tainted: bool,
     pub taint_value: u32,
-    pub info: String
+    pub info: String,
+    pub tags: Vec<String>
 }
 impl TxKernelTaint {
     pub fn new(
@@ -283,7 +293,8 @@ impl TxKernelTaint {
             timestamp: String,
             is_tainted: bool,
             taint_value: u32,
-            info: String) -> TxKernelTaint {
+            info: String,
+            tags: Vec<String>) -> TxKernelTaint {
         TxKernelTaint {
             run_as_root,
             parent_data_type,
@@ -291,7 +302,8 @@ impl TxKernelTaint {
             timestamp,
             is_tainted,
             taint_value,
-            info
+            info,
+            tags
         }
     }
 
@@ -317,7 +329,8 @@ pub struct TxLink {
     pub creation_time: String,
     pub size: u64,
     pub hidden: bool,
-    pub target_exists: bool
+    pub target_exists: bool,
+    pub tags: Vec<String>
 }
 impl TxLink {
     pub fn new(
@@ -332,7 +345,8 @@ impl TxLink {
             creation_time: String,
             size: u64,
             hidden: bool,
-            target_exists: bool) -> TxLink {
+            target_exists: bool,
+            tags: Vec<String>) -> TxLink {
         TxLink {
             run_as_root,
             parent_data_type,
@@ -345,7 +359,8 @@ impl TxLink {
             creation_time,
             size,
             hidden,
-            target_exists
+            target_exists,
+            tags
         }
     }
 
@@ -370,7 +385,8 @@ pub struct TxProcess {
     pub ppid: i32,
     pub env: String,
     pub root_directory: String,
-    pub current_working_directory: String
+    pub current_working_directory: String,
+    pub tags: Vec<String>
 }
 impl TxProcess {
     pub fn new(
@@ -385,7 +401,8 @@ impl TxProcess {
             ppid: i32,
             env: String,
             root_directory: String,
-            current_working_directory: String) -> TxProcess {
+            current_working_directory: String,
+            tags: Vec<String>) -> TxProcess {
         TxProcess {
             run_as_root,
             parent_data_type,
@@ -398,7 +415,8 @@ impl TxProcess {
             ppid,
             env,
             root_directory,
-            current_working_directory
+            current_working_directory,
+            tags
         }
     }
 
@@ -420,7 +438,8 @@ pub struct TxProcessFile {
     pub pid: i32,
     pub link: String,
     pub path: String,
-    pub exists: bool
+    pub exists: bool,
+    pub tags: Vec<String>
 }
 impl TxProcessFile {
     pub fn new(
@@ -431,7 +450,8 @@ impl TxProcessFile {
             pid: i32,
             link: String,
             path: String,
-            exists: bool) -> TxProcessFile {
+            exists: bool,
+            tags: Vec<String>) -> TxProcessFile {
         TxProcessFile {
             run_as_root,
             parent_data_type,
@@ -440,7 +460,8 @@ impl TxProcessFile {
             pid,
             link,
             path,
-            exists
+            exists,
+            tags
         }
     }
 
@@ -463,7 +484,8 @@ pub struct TxLocalUser {
     pub gid: i32,
     pub description: String,
     pub home_directory: String,
-    pub shell: String
+    pub shell: String,
+    pub tags: Vec<String>
 }
 impl TxLocalUser {
     pub fn new(
@@ -476,7 +498,8 @@ impl TxLocalUser {
             gid: i32, 
             description: String,
             home_directory: String,
-            shell: String) -> TxLocalUser {
+            shell: String,
+            tags: Vec<String>) -> TxLocalUser {
         TxLocalUser {
             run_as_root,
             parent_data_type,
@@ -487,7 +510,8 @@ impl TxLocalUser {
             gid,
             description,
             home_directory,
-            shell
+            shell,
+            tags
         }
     }
 
@@ -507,7 +531,8 @@ pub struct TxLocalGroup {
     pub timestamp: String,
     pub name: String,
     pub gid: u32,
-    pub members: String
+    pub members: String,
+    pub tags: Vec<String>
 }
 impl TxLocalGroup {
     pub fn new(
@@ -517,7 +542,8 @@ impl TxLocalGroup {
             timestamp: String,
             name: String, 
             gid: u32,
-            members: String) -> TxLocalGroup {
+            members: String,
+            tags: Vec<String>) -> TxLocalGroup {
         TxLocalGroup {
             run_as_root,
             parent_data_type,
@@ -525,7 +551,8 @@ impl TxLocalGroup {
             timestamp,
             name,
             gid,
-            members
+            members,
+            tags
         }
     }
 
@@ -548,7 +575,8 @@ pub struct TxLoadedModule {
     pub loaded: i8,                 // how many times the module is loaded
     pub dependencies: String,       // other modules this module is dependant on
     pub state: String,              // state is: Live, Loading, or Unloading
-    pub memory_offset: String       // location in kernel memory of module
+    pub memory_offset: String,      // location in kernel memory of module
+    pub tags: Vec<String>
 }
 impl TxLoadedModule {
     pub fn new(
@@ -561,7 +589,8 @@ impl TxLoadedModule {
             loaded: i8,
             dependencies: String,
             state: String,
-            memory_offset: String) -> TxLoadedModule {
+            memory_offset: String,
+            tags: Vec<String>) -> TxLoadedModule {
         TxLoadedModule {
             run_as_root,
             parent_data_type,
@@ -572,7 +601,8 @@ impl TxLoadedModule {
             loaded,
             dependencies,
             state,
-            memory_offset
+            memory_offset,
+            tags
         }
     }
 
@@ -593,7 +623,8 @@ pub struct TxMountPoint {
     pub name: String,
     pub mount_point: String,
     pub file_system_type: String,
-    pub mount_options: String
+    pub mount_options: String,
+    pub tags: Vec<String>
 }
 impl TxMountPoint {
     pub fn new(
@@ -604,7 +635,8 @@ impl TxMountPoint {
             name: String,
             mount_point: String,
             file_system_type: String,
-            mount_options: String) -> TxMountPoint {
+            mount_options: String,
+            tags: Vec<String>) -> TxMountPoint {
         TxMountPoint {
             run_as_root,
             parent_data_type,
@@ -613,7 +645,8 @@ impl TxMountPoint {
             name,
             mount_point,
             file_system_type,
-            mount_options
+            mount_options,
+            tags
         }
     }
 
@@ -639,7 +672,8 @@ pub struct TxNetConn {
     pub r_ip: String,   // remote ip
     pub r_port: u16,    // remote port
     pub status: String,
-    pub inode: i128
+    pub inode: i128,
+    pub tags: Vec<String>
 }
 impl TxNetConn {
     pub fn new(
@@ -655,7 +689,8 @@ impl TxNetConn {
             r_ip: String,
             r_port: u16,
             status: String,
-            inode: i128) -> TxNetConn {
+            inode: i128,
+            tags: Vec<String>) -> TxNetConn {
         TxNetConn {
             run_as_root,
             parent_data_type,
@@ -669,7 +704,8 @@ impl TxNetConn {
             r_ip,
             r_port,
             status,
-            inode
+            inode,
+            tags
         }
     }
 
@@ -694,7 +730,8 @@ pub struct TxCron {
     pub month: String,
     pub day_of_week: String, 
     pub name: String, 
-    pub command_line: String
+    pub command_line: String,
+    pub tags: Vec<String>
 }
 impl TxCron {
     pub fn new(
@@ -709,7 +746,8 @@ impl TxCron {
             month: String,
             day_of_week: String,
             name: String, 
-            command_line: String) -> TxCron {
+            command_line: String,
+            tags: Vec<String>) -> TxCron {
         TxCron {
             run_as_root,
             parent_data_type,
@@ -722,7 +760,8 @@ impl TxCron {
             month,
             day_of_week,
             name,
-            command_line
+            command_line,
+            tags
         }
     }
 

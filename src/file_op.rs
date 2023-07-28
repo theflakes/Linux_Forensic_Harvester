@@ -151,9 +151,9 @@ fn link_target_exists(link_path: &std::path::Path) -> bool {
     }
 }
 
-fn is_proc_exe_deleted(exe_path: &std::path::Path) -> bool {
-    if exe_path.starts_with("/proc/") && exe_path.ends_with("/exe") {
-        if let Ok(link_target) = fs::read_link(exe_path) {
+fn is_proc_exe_deleted(path: &std::path::Path) -> bool {
+    if path.starts_with("/proc/") && path.ends_with("/exe") {
+        if let Ok(link_target) = fs::read_link(path) {
             return link_target.to_string_lossy().contains("(deleted)");
         }
     }
@@ -161,7 +161,9 @@ fn is_proc_exe_deleted(exe_path: &std::path::Path) -> bool {
 }
 
 // gather metadata for symbolic links
-pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_path: String, hidden: bool, deleted: bool) -> std::io::Result<()> {
+pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, 
+                    file_path: String, hidden: bool, deleted: bool,
+                    tags: Vec<String>) -> std::io::Result<()> {
     let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
     if link.created().is_ok() {
         ctime = format_date(link.created()?.into())?;
@@ -174,7 +176,7 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, file_
                     "ShellLink".to_string(), get_now()?, 
                     link_path, file_path, atime, 
                     wtime, ctime, size, hidden, 
-                    deleted).report_log();
+                    deleted, tags).report_log();
     Ok(())
 }
 
@@ -188,16 +190,18 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
     let mut path = PathAbs::new(&link_path)?.clone().into();
     let sl = fs::symlink_metadata(&link_path)?;
     if sl.file_type().is_symlink() {
+        let mut tags: Vec<String> = Vec::new();
+        if is_proc_exe_deleted(link_path) {
+            tags.push("ProcExeDeleted".to_string())
+        }
         path = resolve_link(link_path)?;
         parent_data_type = "ShellLink".to_string();
         process_link(pdt, sl, 
                     link_path.to_string_lossy().into(), 
                     path.to_string_lossy().into(), 
                     is_hidden(&path), 
-                    link_target_exists(link_path))?;
-        if is_proc_exe_deleted(link_path) {
-
-        }
+                    link_target_exists(link_path),
+                    tags)?;
     }
     Ok((parent_data_type, path))
 }
