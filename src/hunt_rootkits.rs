@@ -1,9 +1,9 @@
-use std::{collections::{HashSet, HashMap}, time::{SystemTime, UNIX_EPOCH}, path::Path, os::unix::prelude::{MetadataExt, PermissionsExt}, fs, io::{BufReader, BufRead}};
+use std::{collections::{HashSet, HashMap}, time::{SystemTime, UNIX_EPOCH}, path::Path, os::unix::prelude::{MetadataExt, PermissionsExt}, fs, io::{BufReader, BufRead, self}};
 use memmap2::MmapOptions;
 use crate::{process_process, process_file, IS_ROOT, data_defs::{TxKernelTaint, TxHiddenData, TxFileContent}, time::get_now, file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}};
 
 
-pub fn rootkit_hunt(mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+pub fn rootkit_hunt(mut already_seen: &mut HashSet<String>) -> io::Result<()> {
     examine_kernel_taint();
     find_rootkit_hidden_procs(&mut already_seen)?;
     let mut tags = reset_tags("Rootkit", 
@@ -12,6 +12,12 @@ pub fn rootkit_hunt(mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
                     0o644, &mut already_seen, 
                     &"Rootkit",
                     tags);
+    let mut tags = reset_tags("Rootkit", 
+                    ["ProcMimic".to_string()].to_vec());
+    match find_proc_mimics(&mut already_seen, tags) {
+        Ok(it) => it,
+        Err(err) => (()),
+    };
     Ok(())
 }
 
@@ -22,7 +28,7 @@ fn reset_tags(always_add: &str, extend_with: Vec<String>) -> HashSet<String> {
     return tags
 }
 
-fn examine_kernel_taint() -> std::io::Result<()> {
+fn examine_kernel_taint() -> io::Result<()> {
     let mut taint_bits = HashMap::new();
     taint_bits.insert(0, "proprietary module was loaded");
     taint_bits.insert(1, "module was force loaded");
@@ -79,10 +85,11 @@ fn examine_kernel_taint() -> std::io::Result<()> {
     Ok(())
 }
 
-fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn find_rootkit_hidden_procs(already_seen: &mut HashSet<String>) -> io::Result<()> {
     let mut visible = HashSet::new();
+    let mut tags: HashSet<String> = HashSet::new();
     let proc_dir = Path::new("/proc");
-    let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    // let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
     for entry in fs::read_dir(proc_dir)? {
         let entry = entry?;
@@ -103,9 +110,9 @@ fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<
         if !status_path.exists() {
             continue;
         }
-        if status_path.metadata()?.mtime() as u64 >= start {
-            continue;
-        }
+        // if status_path.metadata()?.mtime() as u64 >= start {
+        //     continue;
+        // }
 
         let status = fs::read_to_string(status_path)?;
         let tgid = status
@@ -119,7 +126,7 @@ fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<
         }
         let exe_path = proc_dir.join(pid.to_string()).join("exe");
         let exe = fs::read_link(&exe_path).ok();
-        process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, already_seen)?;
+        process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, already_seen, &mut tags)?;
     }
 
     Ok(())
@@ -131,7 +138,7 @@ fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<
     based upon a byte by byte comparison
     See: https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
 */
-pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<()> {
+pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<()> {
     let file = fs::File::open(file_path)?;
     let contents = read_file_bytes(&file)?;
     let size_read = contents.len() as u64;
@@ -161,5 +168,64 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Res
         file_path.to_string_lossy().into_owned(), 
         String::from_utf8_lossy(&differences).into_owned(), 
         u8_to_hex_string(&differences)?, tags).report_log();
+    Ok(())
+}
+
+/*
+    This function needs work to remove unwraps.
+
+    Quickly converted from: https://github.com/tstromberg/sunlight/blob/main/fake-name.sh
+    Need to better understand it.
+*/
+fn find_proc_mimics(already_seen: &mut HashSet<String>, mut tags: HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+    let expected: HashMap<String, i32> = [
+        ("/bin/bash".to_string(), 1),
+        ("/bin/dash".to_string(), 1),
+        ("/usr/bin/bash".to_string(), 1),
+        ("/usr/bin/perl".to_string(), 1),
+        ("/usr/bin/udevadm".to_string(), 1),
+        ("/usr/bin/zsh".to_string(), 1),
+        ("/usr/lib/electron##/electron".to_string(), 1),
+        ("/usr/lib/firefox/firefox".to_string(), 1),
+        ("/usr/lib/firefox/firefox-bin".to_string(), 1),
+        ("/usr/lib/systemd/systemd".to_string(), 1),
+        ("/usr/local/bin/rootlesskit".to_string(), 1),
+        ("/usr/bin/python#.#".to_string(), 1),
+        ("/usr/bin/python#.##".to_string(), 1),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    let proc_dir = Path::new("/proc");
+    if !proc_dir.exists() { return Ok(()) }
+
+    for e in fs::read_dir(proc_dir)? {
+        let entry = e?;
+        let base_path = entry.path();
+        let exe_path = base_path.join("exe");
+        if !exe_path.exists() || base_path.to_str().unwrap().contains("self") { continue; }
+
+        let path = fs::read_link(&exe_path)?;
+        let name = fs::read_to_string(base_path.join("comm"))?;
+        let short_name: String = name.trim()
+            .split(|c| c == '-' || c == ':' || c == ' ')
+            .next()
+            .ok_or(io::Error::new(io::ErrorKind::InvalidData, "Invalid short name"))?
+            .to_string();
+        let short_base: String = base_path.to_str().unwrap().chars().take(5).collect();
+
+        if path.to_str().unwrap().contains(&short_name) || name.trim().contains(&short_base) {
+            continue;
+        }
+
+        let pattern: String = path
+            .to_str()
+            .unwrap()
+            .chars()
+            .map(|c| if c.is_numeric() { '#' } else { c })
+            .collect();
+        if expected.get(&pattern) == Some(&1) { continue; }
+        process_process(&"Rootkit", &base_path.to_string_lossy(), &exe_path, already_seen, &mut tags)?;
+    }
     Ok(())
 }

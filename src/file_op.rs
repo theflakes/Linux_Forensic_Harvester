@@ -253,7 +253,7 @@ pub fn file_to_vec(filename: &str) -> io::Result<Vec<String>> {
 
 
 pub fn find_files_with_permissions(start: &Path, permissions: u32, 
-                               mut already_seen: &mut Vec<String>,
+                               mut already_seen: &mut HashSet<String>,
                                pdt: &str,
                                mut tags: HashSet<String>) -> std::io::Result<()> {
     if start.is_dir() {
