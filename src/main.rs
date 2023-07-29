@@ -111,63 +111,6 @@ fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<Vec<String>>
 }
 
 /*
-    regex's to find interesting strings in files
-    capture and report the line that the interesting string is found in
-*/
-// fn find_interesting(file: &str, text: &str) -> std::io::Result<()> {
-//     lazy_static! {
-//         // use \x20 for matching spaces when using "x" directive that doesn't allow spaces in regex
-//         static ref RE: Regex = Regex::new(r#"(?mix)
-//             (?:^.*(?:
-//                 (?:(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|[1]?[1-9]?[0-9])){3})|        # IPv4 address
-//                 (?:                                                                                                 # IPv6 https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
-//                     (?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|                                                     # 1:2:3:4:5:6:7:8
-//                     (?:[0-9a-fA-F]{1,4}:){1,7}:|                                                                    # 1::                              1:2:3:4:5:6:7::
-//                     (?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|                                                    # 1::8             1:2:3:4:5:6::8  1:2:3:4:5:6::8
-//                     (?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|                                           # 1::7:8           1:2:3:4:5::7:8  1:2:3:4:5::8
-//                     (?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|                                           # 1::6:7:8         1:2:3:4::6:7:8  1:2:3:4::8
-//                     (?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|                                           # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
-//                     (?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|                                           # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
-//                     [0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|                                                # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
-//                     :(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|                                                              # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
-//                     fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|                                                # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
-//                     ::(?:ffff(?::0{1,4}){0,1}:){0,1}
-//                     (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
-//                     (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|                                                   # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255  (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
-//                     (?:[0-9a-fA-F]{1,4}:){1,4}:
-//                     (?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
-//                     (?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])                                                    # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
-//                 )|
-//                 (?:https?|ftp|smb|cifs)://|                                                                         # URL
-//                 \\\\\w+.+\\\w+|                                                                                     # UNC
-//                 (?:^|[\x20"':=!|])(?:/[\w.-]+)+|                                                                    # file path
-//                 (?:[a-z0-9+/]{4}){8,}(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?|                                           # base64
-//                 [a-z0-9]{300}|                                                                                      # basic encoding
-//                 (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){10}|                                                    # shell code
-//                 [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}|                                                       # email
-//                 (?:                                                                                                 # Web shells
-//                     # PHP / Perl / JSP possible web shells often used functions
-//                     eval\(|exec(?:\(|\.)|passthru|base64(?:_decode)|system|p?(?:roc_)?open|                        
-//                     preg_replace|`.{2,50}`|show_source|parse_ini_file|assert|gzdeflate|
-//                     str_rot13|StreamConnector|start\(|
-
-//                     # ASP possible web shells often used functions
-//                     creatobject|\.run
-//                 )
-//             ).*$)                                                                    
-//         "#).expect("bad regex");
-//     }
-
-//     for c in RE.captures_iter(text) {
-//         let line = &c[0];
-//         TxFileContent::new(*IS_ROOT, "".to_string(), "FileContent".to_string(), 
-//                             get_now()?, file.to_string(), line.into(), 
-//                             "".to_string(), Vec::new()).report_log();
-//     }
-//     Ok(())
-// }
-
-/*
     identify files being referenced in the file content 
     this is so we can harvest the metadata on these files as well
 */
