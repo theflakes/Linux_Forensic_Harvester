@@ -1,8 +1,7 @@
 use std::{collections::{HashSet, HashMap}, time::{SystemTime, UNIX_EPOCH}, path::Path, os::unix::prelude::{MetadataExt, PermissionsExt}, fs, io::{BufReader, BufRead}};
-
 use memmap2::MmapOptions;
-
 use crate::{process_process, process_file, IS_ROOT, data_defs::{TxKernelTaint, TxHiddenData, TxFileContent}, time::get_now, file_op::{read_file_bytes, u8_to_hex_string}};
+
 
 pub fn rootkit_hunt(mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     examine_kernel_taint();
