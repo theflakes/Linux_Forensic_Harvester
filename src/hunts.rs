@@ -3,6 +3,7 @@ extern crate regex;
 extern crate bstr;
 
 use regex::Regex;
+use std::{collections::HashSet, hash::Hash};
 use crate::{data_defs::*, file_op::*, time::*};
 use std::{io::Result, str};
 use bstr::ByteSlice;
@@ -20,10 +21,12 @@ pub fn report_finds(pdt: &str, re: &Regex, file: &str, text: &str, flag: &str) -
     for c in re.captures_iter(text) {
         found = true;
         let line = &c[0];
+        let mut tags: HashSet<String> = HashSet::new();
+        tags.insert(flag.to_owned());
         TxFileContent::new(*crate::IS_ROOT, pdt.to_string(), 
             "FileContent".to_string(), 
             get_now()?, file.to_string(), line.to_string(), 
-            "".to_string(), [flag.to_string()].to_vec()).report_log();
+            "".to_string(), tags).report_log();
     }
     Ok(found)
 }
@@ -32,9 +35,9 @@ pub fn found_base64(pdt: &str, file: &str, text: &str, flag: &str) -> Result<boo
 {
     lazy_static! {
         static ref BASE64: Regex = Regex::new(r#"(?mix)
-            (:?
+            (:?.*
                 (?:[a-z0-9+\/]{4}){16,}(?:[a-z0-9+\/]{4}|[a-z0-9+\/]{3}=|[a-z0-9+\/]{2}={2})
-            )                                                                  
+            .*)                                                                  
         "#).expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &BASE64, file, text, flag)?)
@@ -44,9 +47,9 @@ pub fn found_email(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool
 {
     lazy_static! {
         static ref EMAIL: Regex = Regex::new(r#"(?mix)
-            (:?   
+            (:?.*   
                 [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}
-            )                                                                  
+            .*)                                                                  
         "#).expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &EMAIL, file, text, flag)?)
@@ -57,9 +60,9 @@ pub fn found_encoding(pdt: &str, file: &str, text: &str, flag: &str) -> Result<b
 {
     lazy_static! {
         static ref ENCODING: Regex = Regex::new(r#"(?mix)
-            (:?
+            (:?.*
                 [a-z0-9=/+&]{300}
-            )                                                                  
+            .*)                                                                  
         "#).expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &ENCODING, file, text, flag)?)
@@ -142,9 +145,9 @@ pub fn found_righttoleft(pdt: &str, file: &str, text: &str, flag: &str) -> Resul
 {
     lazy_static! {
         static ref RL: Regex = Regex::new(r#"(?mix)
-            (:?
-                \u{202E}.*
-            )                                                                  
+            (:?.*
+                \u{202E}
+            .*)                                                                  
         "#).expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &RL, file, text, flag)?)
@@ -168,9 +171,9 @@ pub fn found_shellcode(pdt: &str, file: &str, text: &str, flag: &str) -> Result<
 {
     lazy_static! {
         static ref SHELL_CODE: Regex = Regex::new(r#"(?mix)
-            (:?
+            (:?.*
                 (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){100}
-            )                                                                  
+            .*)                                                                  
         "#).expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &SHELL_CODE, file, text, flag)?)

@@ -10,7 +10,7 @@ use crate::mutate::hex_to_bytes;
 use chrono::*;
 use serde::Serialize;
 use serde_derive::Deserialize;
-use std::io::prelude::Write;
+use std::{io::prelude::Write, collections::HashSet};
 use docopt::Docopt;
 use std::thread;
 use regex::Regex;
@@ -173,7 +173,7 @@ pub struct TxFile {
     pub nlink: u64, // number of hard links to file
     pub inode: u64,
     pub permissions: String,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 impl TxFile {
     pub fn new(
@@ -194,7 +194,7 @@ impl TxFile {
             nlink: u64,
             inode: u64,
             permissions: String,
-            tags: Vec<String>,) -> TxFile {
+            tags: HashSet<String>,) -> TxFile {
         TxFile {
             run_as_root,
             parent_data_type,
@@ -235,7 +235,7 @@ pub struct TxFileContent {
     pub path: String,
     pub line: String,
     pub bytes: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxFileContent {
     pub fn new(
@@ -246,7 +246,7 @@ impl TxFileContent {
             path: String,
             line: String,
             bytes: String,
-            tags: Vec<String>,) -> TxFileContent {
+            tags: HashSet<String>,) -> TxFileContent {
         TxFileContent {
             run_as_root,
             parent_data_type,
@@ -267,19 +267,19 @@ impl TxFileContent {
 
 // used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
-pub struct TxRootkit {
+pub struct TxHiddenData {
     pub run_as_root: bool,
     #[serde(default = "File")]
     pub parent_data_type: String,
-    #[serde(default = "Rootkit")]
+    #[serde(default = "HiddenData")]
     pub data_type: String,
     pub timestamp: String,
     pub path: String,
     pub size: u64,
     pub size_read: u64,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
-impl TxRootkit {
+impl TxHiddenData {
     pub fn new(
             run_as_root: bool,
             parent_data_type: String,
@@ -288,8 +288,8 @@ impl TxRootkit {
             path: String,
             size: u64,
             size_read: u64,
-            tags: Vec<String>) -> TxRootkit {
-        TxRootkit {
+            tags: HashSet<String>) -> TxHiddenData {
+        TxHiddenData {
             run_as_root,
             parent_data_type,
             data_type,
@@ -318,7 +318,7 @@ pub struct TxKernelTaint {
     is_tainted: bool,
     pub taint_value: u32,
     pub info: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxKernelTaint {
     pub fn new(
@@ -329,7 +329,7 @@ impl TxKernelTaint {
             is_tainted: bool,
             taint_value: u32,
             info: String,
-            tags: Vec<String>) -> TxKernelTaint {
+            tags: HashSet<String>) -> TxKernelTaint {
         TxKernelTaint {
             run_as_root,
             parent_data_type,
@@ -365,7 +365,7 @@ pub struct TxLink {
     pub size: u64,
     pub hidden: bool,
     pub target_exists: bool,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxLink {
     pub fn new(
@@ -381,7 +381,7 @@ impl TxLink {
             size: u64,
             hidden: bool,
             target_exists: bool,
-            tags: Vec<String>) -> TxLink {
+            tags: HashSet<String>) -> TxLink {
         TxLink {
             run_as_root,
             parent_data_type,
@@ -421,7 +421,7 @@ pub struct TxProcess {
     pub env: String,
     pub root_directory: String,
     pub current_working_directory: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxProcess {
     pub fn new(
@@ -437,7 +437,7 @@ impl TxProcess {
             env: String,
             root_directory: String,
             current_working_directory: String,
-            tags: Vec<String>) -> TxProcess {
+            tags: HashSet<String>) -> TxProcess {
         TxProcess {
             run_as_root,
             parent_data_type,
@@ -474,7 +474,7 @@ pub struct TxProcessFile {
     pub link: String,
     pub path: String,
     pub exists: bool,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxProcessFile {
     pub fn new(
@@ -486,7 +486,7 @@ impl TxProcessFile {
             link: String,
             path: String,
             exists: bool,
-            tags: Vec<String>) -> TxProcessFile {
+            tags: HashSet<String>) -> TxProcessFile {
         TxProcessFile {
             run_as_root,
             parent_data_type,
@@ -520,7 +520,7 @@ pub struct TxLocalUser {
     pub description: String,
     pub home_directory: String,
     pub shell: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxLocalUser {
     pub fn new(
@@ -534,7 +534,7 @@ impl TxLocalUser {
             description: String,
             home_directory: String,
             shell: String,
-            tags: Vec<String>) -> TxLocalUser {
+            tags: HashSet<String>) -> TxLocalUser {
         TxLocalUser {
             run_as_root,
             parent_data_type,
@@ -567,7 +567,7 @@ pub struct TxLocalGroup {
     pub name: String,
     pub gid: u32,
     pub members: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxLocalGroup {
     pub fn new(
@@ -578,7 +578,7 @@ impl TxLocalGroup {
             name: String, 
             gid: u32,
             members: String,
-            tags: Vec<String>) -> TxLocalGroup {
+            tags: HashSet<String>) -> TxLocalGroup {
         TxLocalGroup {
             run_as_root,
             parent_data_type,
@@ -611,7 +611,7 @@ pub struct TxLoadedModule {
     pub dependencies: String,       // other modules this module is dependant on
     pub state: String,              // state is: Live, Loading, or Unloading
     pub memory_offset: String,      // location in kernel memory of module
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxLoadedModule {
     pub fn new(
@@ -625,7 +625,7 @@ impl TxLoadedModule {
             dependencies: String,
             state: String,
             memory_offset: String,
-            tags: Vec<String>) -> TxLoadedModule {
+            tags: HashSet<String>) -> TxLoadedModule {
         TxLoadedModule {
             run_as_root,
             parent_data_type,
@@ -659,7 +659,7 @@ pub struct TxMountPoint {
     pub mount_point: String,
     pub file_system_type: String,
     pub mount_options: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxMountPoint {
     pub fn new(
@@ -671,7 +671,7 @@ impl TxMountPoint {
             mount_point: String,
             file_system_type: String,
             mount_options: String,
-            tags: Vec<String>) -> TxMountPoint {
+            tags: HashSet<String>) -> TxMountPoint {
         TxMountPoint {
             run_as_root,
             parent_data_type,
@@ -708,7 +708,7 @@ pub struct TxNetConn {
     pub r_port: u16,    // remote port
     pub status: String,
     pub inode: i128,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxNetConn {
     pub fn new(
@@ -725,7 +725,7 @@ impl TxNetConn {
             r_port: u16,
             status: String,
             inode: i128,
-            tags: Vec<String>) -> TxNetConn {
+            tags: HashSet<String>) -> TxNetConn {
         TxNetConn {
             run_as_root,
             parent_data_type,
@@ -766,7 +766,7 @@ pub struct TxCron {
     pub day_of_week: String, 
     pub name: String, 
     pub command_line: String,
-    pub tags: Vec<String>
+    pub tags: HashSet<String>
 }
 impl TxCron {
     pub fn new(
@@ -782,7 +782,7 @@ impl TxCron {
             day_of_week: String,
             name: String, 
             command_line: String,
-            tags: Vec<String>) -> TxCron {
+            tags: HashSet<String>) -> TxCron {
         TxCron {
             run_as_root,
             parent_data_type,

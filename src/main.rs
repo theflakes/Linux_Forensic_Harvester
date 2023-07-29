@@ -27,7 +27,7 @@ use chrono::format::format;
 use hunts::*;
 use serde::de::IntoDeserializer;
 use walkdir::WalkDir;
-use std::{fs::{self, DirEntry, File}, path::{PathBuf, Path}};
+use std::{fs::{self, DirEntry, File}, path::{PathBuf, Path}, os::unix::prelude::PermissionsExt};
 use regex::Regex;
 use {data_defs::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
@@ -92,21 +92,21 @@ const WATCH_FILE_TYPES: [&str; 25] = [
 
 fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<Vec<String>> {
     let mut tags: Vec<String> = Vec::new();
-    if found_base64(pdt, file, text, &"base64")? { tags.push("base64".to_string()) }
-    if found_email(pdt, file, text, &"email")? { tags.push("email".to_string()) }
-    if found_encoding(pdt, file, text, &"encoding")? { tags.push("encoding".to_string()) }
-    if found_hex(&text.as_bytes().to_vec(), &FIND_HEX)? {tags.push("hex".to_string())}
-    if found_ipv4(pdt, file, text, &"ipv4")? { tags.push("ipv4".to_string()) }
-    if found_ipv6(pdt, file, text, &"ipv6")? { tags.push("ipv6".to_string()) }
-    if found_obfuscation(pdt, file, text, &"obfuscation")? { tags.push("obfuscation".to_string()) }
-    if found_regex(pdt, file, text, &"regex")? { tags.push("regex".to_string()) }
-    if found_righttoleft(pdt, file, file, &"rightleft")? { tags.push("rightleft".to_string()) }
-    if found_shell(pdt, file, text, &"shell")? { tags.push("shell".to_string()) }
-    if found_shellcode(pdt, file, text, &"shellcode")? { tags.push("shellcode".to_string()) }
-    if found_suspicious(pdt, file, text, &"suspicious")? { tags.push("suspicious".to_string()) }
-    if found_unc(pdt, file, text, &"unc")? { tags.push("unc".to_string()) }
-    if found_url(pdt, file, text, &"url")? { tags.push("url".to_string()) }
-    if found_webshell(pdt, file, text, &"webshell")? { tags.push("webshell".to_string()) }
+    if found_base64(pdt, file, text, &"Base64")? { tags.push("Base64".to_string()) }
+    if found_email(pdt, file, text, &"Email")? { tags.push("Email".to_string()) }
+    if found_encoding(pdt, file, text, &"Encoding")? { tags.push("Encoding".to_string()) }
+    if found_hex(&text.as_bytes().to_vec(), &FIND_HEX)? {tags.push("Hex".to_string())}
+    if found_ipv4(pdt, file, text, &"IPv4")? { tags.push("IPv4".to_string()) }
+    if found_ipv6(pdt, file, text, &"IPv6")? { tags.push("IPv6".to_string()) }
+    if found_obfuscation(pdt, file, text, &"Obfuscation")? { tags.push("Obfuscation".to_string()) }
+    if found_regex(pdt, file, text, &"Regex")? { tags.push("Regex".to_string()) }
+    if found_righttoleft(pdt, file, file, &"RightLeft")? { tags.push("RightLeft".to_string()) }
+    if found_shell(pdt, file, text, &"Shell")? { tags.push("Shell".to_string()) }
+    if found_shellcode(pdt, file, text, &"ShellCode")? { tags.push("ShellCode".to_string()) }
+    if found_suspicious(pdt, file, text, &"Suspicious")? { tags.push("Suspicious".to_string()) }
+    if found_unc(pdt, file, text, &"Unc")? { tags.push("Unc".to_string()) }
+    if found_url(pdt, file, text, &"Url")? { tags.push("Url".to_string()) }
+    if found_webshell(pdt, file, text, &"WebShell")? { tags.push("WebShell".to_string()) }
     Ok(tags)
 }
 
@@ -121,7 +121,7 @@ fn find_paths(text: &str, already_seen: &mut Vec<String>) -> std::io::Result<()>
     }
     for c in RE.captures_iter(text) {
         let path = Path::new(&c[1]);
-        process_file("FileContent", path, already_seen)?;
+        process_file("FileContent", path, already_seen, &mut HashSet::new())?;
     }
     Ok(())
 }
@@ -194,7 +194,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     TxNetConn::new(*IS_ROOT, "Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7])?, local_ip, 
                                     local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
-                                    to_int128(&inode)?, Vec::new()).report_log();
+                                    to_int128(&inode)?, HashSet::new()).report_log();
                 }
                 matched = true;
             }
@@ -211,8 +211,8 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     let data_type = "ProcessOpenFile".to_string();
     TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
-                        path_exists(fd), Vec::new()).report_log();
-    process_file(&data_type, Path::new(path), already_seen)?;
+                        path_exists(fd), HashSet::new()).report_log();
+    process_file(&data_type, Path::new(path), already_seen, &mut HashSet::new())?;
     Ok(())
 }
 
@@ -260,7 +260,7 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, already_seen: &mut
     TxProcess::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
-                    cwd.to_string_lossy().into(), Vec::new()).report_log();
+                    cwd.to_string_lossy().into(), HashSet::new()).report_log();
     if pdt.eq("Rootkit") { data_type = "Rootkit".to_string(); }
     process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
     Ok(())
@@ -325,7 +325,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         let state = values[4].to_string();
         let offset = values[5].to_string();
         TxLoadedModule::new(*IS_ROOT, pdt.to_string(), "KernelModule".to_string(), get_now()?, 
-                            name, size, loaded, dependencies, state, offset, Vec::new()).report_log();
+                            name, size, loaded, dependencies, state, offset, HashSet::new()).report_log();
     }
     Ok(())
 }
@@ -340,7 +340,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         let file_system_type = values[2].to_string();
         let mount_options = values[3].replace(",", ", ").trim().to_string();
         TxMountPoint::new(*IS_ROOT, pdt.to_string(), "MountPoint".to_string(), get_now()?, 
-                            name, mount_point, file_system_type, mount_options, Vec::new()).report_log();
+                            name, mount_point, file_system_type, mount_options, HashSet::new()).report_log();
     }
     Ok(())
 }
@@ -366,7 +366,7 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut Vec<String>) -> std::
                 if !PID.is_match(&p) { continue };
                 let bin = push_file_path(p, "/exe")?;
                 process_process(&pdt, &p, &bin, already_seen)?;
-                match process_file("Process", &bin, already_seen)  {
+                match process_file("Process", &bin, already_seen, &mut HashSet::new())  {
                     Ok(_) => continue,
                     Err(_) => continue,
                 };
@@ -390,7 +390,7 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let shell = values[6].to_string();
         TxLocalUser::new(*IS_ROOT, pdt.to_string(), "LocalUser".to_string(), get_now()?, 
                         account_name, uid, gid, description, home_directory, 
-                        shell, Vec::new()).report_log();
+                        shell, HashSet::new()).report_log();
     }
     Ok(())
 }
@@ -404,7 +404,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let gid: u32 = values[2].to_string().parse().unwrap();
         let members = values[3].to_string();
         TxLocalGroup::new(*IS_ROOT, pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
-                            group_name, gid, members, Vec::new()).report_log();
+                            group_name, gid, members, HashSet::new()).report_log();
     }
     Ok(())
 }
@@ -425,7 +425,7 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
         let command_line = fields[6].to_string();
         TxCron::new(*IS_ROOT, pdt.to_string(), "Cron".to_string(), get_now()?, 
                     path.to_string(), minute, hour, day_of_month, month, 
-                    day_of_week, account_name, command_line, Vec::new()).report_log();
+                    day_of_week, account_name, command_line, HashSet::new()).report_log();
     }
     Ok(())
 }
@@ -438,7 +438,7 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut Vec<String>) -> st
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir()) {
             parse_cron(pdt, &entry.path().to_string_lossy())?;
-            match process_file("Cron", entry.path(), &mut already_seen) {
+            match process_file("Cron", entry.path(), &mut already_seen, &mut HashSet::new()) {
                 Ok(_) => continue,
                 Err(_) => continue,
             };
@@ -466,13 +466,14 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<
             break;
         }
     }
-    TxRootkit::new(*IS_ROOT, 
-                    "File".to_string(), 
-                    "Rootkit".to_string(), 
-                    get_now()?, 
-                    (file_path.to_string_lossy()).into_owned(), 
-                    size, 
-                    size_read, Vec::new()).report_log();
+    let mut tags: HashSet<String> = HashSet::new();
+    tags.insert("rootkit".to_string());
+    TxHiddenData::new(*IS_ROOT, 
+        "File".to_string(), 
+        "HiddenData".to_string(), 
+        get_now()?, 
+        (file_path.to_string_lossy()).into_owned(), 
+        size, size_read, tags.clone()).report_log();
     if differences.is_empty() { return Ok(()) }
     TxFileContent::new(*IS_ROOT, 
         "Rootkit".to_string(), 
@@ -480,7 +481,7 @@ fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> std::io::Result<
         get_now()?, 
         file_path.to_string_lossy().into_owned(), 
         String::from_utf8_lossy(&differences).into_owned(), 
-        u8_to_hex_string(&differences)?, Vec::new()).report_log();
+        u8_to_hex_string(&differences)?, tags).report_log();
     Ok(())
 }
 
@@ -503,11 +504,11 @@ fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u6
 }
 
 // harvest a file's metadata
-fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>) -> std::io::Result<()> {
+fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>, tags: &mut HashSet<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
     if (file_path.is_symlink() || file_path.is_file()) && !already_seen.contains(&p.clone()) {
         already_seen.push(p);    // track files we've processed so we don't process them more than once
-        let (parent_data_type, path_buf) = get_link_info(&pdt, file_path)?;   // is this file a symlink? TRUE: get symlink info and path to linked file
+        let (parent_data_type, path_buf) = get_link_info(&pdt, file_path)?; // is this file a symlink? TRUE: get symlink info and path to linked file
         
         let file = open_file(&path_buf)?;
         let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
@@ -517,7 +518,6 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>)
         let atime = format_date(file.metadata()?.accessed()?.into())?;
         let wtime = format_date(file.metadata()?.modified()?.into())?;
         if not_in_time_window(&atime, &ctime, &wtime)? { return Ok(()) }
-        let mut tags: Vec<String> = Vec::new(); 
         let size = file.metadata()?.len();
         let uid = file.metadata()?.uid();
         let gid = file.metadata()?.gid();
@@ -530,8 +530,8 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>)
         let mode = file.metadata()?.mode();
         let perms = parse_permissions(mode);
         let (is_suid, is_sgid) = is_suid_sgid(mode);
-        if is_suid { tags.push("suid".to_string()) }
-        if is_sgid { tags.push("sgid".to_string()) }
+        if is_suid { tags.insert("suid".to_string()); }
+        if is_sgid { tags.insert("sgid".to_string()); }
         let (md5, mime_type) = get_file_content_info(&file)?;
 
         // certain files we want to parse explicitely
@@ -549,7 +549,7 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut Vec<String>)
         TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
-            nlink, inode, perms, tags).report_log();
+            nlink, inode, perms, tags.to_owned()).report_log();
     }
     Ok(())
 }
@@ -564,7 +564,7 @@ fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut Vec<Str
                     .max_depth(ARGS.flag_depth)
                     .into_iter()
                     .filter_map(|e| e.ok()) {
-                process_file(&pdt, entry.path(), &mut already_seen)?;
+                process_file(&pdt, entry.path(), &mut already_seen, &mut HashSet::new());
                 sleep();
             },
     }
@@ -597,7 +597,7 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
             let mode = md.mode();
             let (is_suid, is_sgid) = is_suid_sgid(mode);
             if is_suid || is_sgid {
-                match process_file("SuidSgid", entry.path(), already_seen) {
+                match process_file("SuidSgid", entry.path(), already_seen, &mut HashSet::new()) {
                     Ok(_) => continue,
                     Err(_) => continue,
                 };
@@ -656,18 +656,39 @@ fn examine_kernel_taint() -> std::io::Result<()> {
             results.push_str(&format!("{}\n", line));
         }
     }
-    
-    TxKernelTaint::new(*IS_ROOT, "Rootkit".to_string(), 
+    let mut tags = HashSet::new();
+    tags.insert("Rootkit".to_string());
+    TxKernelTaint::new(*IS_ROOT, "".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
                         is_tainted, taint, results, 
-                        Vec::new()).report_log();
-    
+                        tags).report_log();
+    Ok(())
+}
+
+fn find_files_with_permissions(start: &Path, permissions: u32, 
+                               mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
+    if start.is_dir() {
+        for entry in fs::read_dir(start)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                let metadata = fs::metadata(&path)?;
+                let file_permissions = metadata.permissions().mode();
+                if file_permissions == permissions {
+                    let mut tags = HashSet::new();
+                    tags.insert("Rootkit".to_string());
+                    process_file(&"", &path, &mut already_seen, &mut tags)?
+                }
+            }
+        }
+    }
     Ok(())
 }
 
 fn rootkit_hunt(mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     examine_kernel_taint();
     find_rootkit_hidden_procs(&mut already_seen)?;
+    find_files_with_permissions(Path::new("/run"), 0o644, &mut already_seen);
     Ok(())
 }
 

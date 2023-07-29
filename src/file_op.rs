@@ -5,6 +5,7 @@ extern crate file;
 extern crate libc;
 
 use crate::{data_defs::*, mutate::*, time::*};
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{Read, BufRead, BufReader};
 use std::io;
@@ -163,7 +164,7 @@ fn is_proc_exe_deleted(path: &std::path::Path) -> bool {
 // gather metadata for symbolic links
 pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, 
                     file_path: String, hidden: bool, deleted: bool,
-                    tags: Vec<String>) -> std::io::Result<()> {
+                    tags: HashSet<String>) -> std::io::Result<()> {
     let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
     if link.created().is_ok() {
         ctime = format_date(link.created()?.into())?;
@@ -190,9 +191,9 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
     let mut path = PathAbs::new(&link_path)?.clone().into();
     let sl = fs::symlink_metadata(&link_path)?;
     if sl.file_type().is_symlink() {
-        let mut tags: Vec<String> = Vec::new();
+        let mut tags: HashSet<String> = HashSet::new();
         if is_proc_exe_deleted(link_path) {
-            tags.push("ProcExeDeleted".to_string())
+            tags.insert("ProcExeDeleted".to_string());
         }
         path = resolve_link(link_path)?;
         parent_data_type = "ShellLink".to_string();
