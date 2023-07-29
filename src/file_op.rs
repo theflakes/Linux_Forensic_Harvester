@@ -4,11 +4,14 @@ extern crate md5;
 extern crate file;
 extern crate libc;
 
-use crate::{data_defs::*, mutate::*, time::*};
+use crate::{data_defs::*, mutate::*, time::*, process_file};
 use std::collections::HashSet;
 use std::fs::{self, File};
+use std::hash::Hash;
 use std::io::{Read, BufRead, BufReader};
 use std::io;
+use std::os::unix::prelude::PermissionsExt;
+use std::path::Path;
 use path_abs::{PathAbs, PathInfo};
 use libc::{S_IRGRP, S_IROTH, S_IRUSR, // see: https://www.gnu.org/software/libc/manual/html_node/Permission-Bits.html
            S_IWGRP, S_IWOTH, S_IWUSR, 
@@ -245,4 +248,26 @@ pub fn file_to_vec(filename: &str) -> io::Result<Vec<String>> {
     let file_in = fs::File::open(filename)?;
     let file_reader = BufReader::new(file_in);
     Ok(file_reader.lines().filter_map(io::Result::ok).collect())
+}
+
+
+
+pub fn find_files_with_permissions(start: &Path, permissions: u32, 
+                               mut already_seen: &mut Vec<String>,
+                               pdt: &str,
+                               mut tags: HashSet<String>) -> std::io::Result<()> {
+    if start.is_dir() {
+        for entry in fs::read_dir(start)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                let metadata = fs::metadata(&path)?;
+                let file_permissions = metadata.permissions().mode();
+                if file_permissions == permissions {
+                    process_file(pdt, &path, &mut already_seen, &mut tags)?
+                }
+            }
+        }
+    }
+    Ok(())
 }

@@ -29,7 +29,7 @@ use hunt_rootkits::{rootkit_hunt, get_rootkit_hidden_file_data};
 use hunts::*;
 use serde::de::IntoDeserializer;
 use walkdir::WalkDir;
-use std::{fs::{self, DirEntry, File}, path::{PathBuf, Path}, os::unix::prelude::PermissionsExt};
+use std::{fs::{self, DirEntry, File}, path::{PathBuf, Path}, os::unix::prelude::PermissionsExt, process::exit};
 use regex::Regex;
 use {data_defs::*, file_op::*, mutate::*, time::*};
 use std::os::unix::fs::MetadataExt;
@@ -214,7 +214,9 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd), HashSet::new()).report_log();
-    process_file(&data_type, Path::new(path), already_seen, &mut HashSet::new())?;
+    let mut tags: HashSet<String> = HashSet::new();
+    if pdt.eq("Rootkit") { tags.insert("Rootkit".to_string()); }
+    process_file(&data_type, Path::new(path), already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -258,12 +260,12 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, already_seen: &mut
     let pid = to_int32(sub)?;
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat")?)?, " ")?;
     let mut data_type = "Process".to_string();
-    let ppid = to_int32(&stat[3])?;
+    let mut ppid: i32 = 0;
+    if stat.len() > 3 { ppid = to_int32(&stat[3])?; }
     TxProcess::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
                     cwd.to_string_lossy().into(), HashSet::new()).report_log();
-    if pdt.eq("Rootkit") { data_type = "Rootkit".to_string(); }
     process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
     Ok(())
 }
@@ -525,9 +527,18 @@ fn find_suid_sgid(already_seen: &mut Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
 
+fn is_root() {
+    if Uid::effective().is_root() {
+        return;
+    }
+    println!("\nMust be run as root!!!\n");
+    exit(1);
+}
 
 // let's start this thing
 fn main() -> std::io::Result<()> {
+    is_root();
+
     let mut already_seen = vec![];  // cache directories and files already examined to avoid multiple touches and possible infinite loops
 
     for path in WATCH_PATHS.iter() {

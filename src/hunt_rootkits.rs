@@ -1,13 +1,25 @@
 use std::{collections::{HashSet, HashMap}, time::{SystemTime, UNIX_EPOCH}, path::Path, os::unix::prelude::{MetadataExt, PermissionsExt}, fs, io::{BufReader, BufRead}};
 use memmap2::MmapOptions;
-use crate::{process_process, process_file, IS_ROOT, data_defs::{TxKernelTaint, TxHiddenData, TxFileContent}, time::get_now, file_op::{read_file_bytes, u8_to_hex_string}};
+use crate::{process_process, process_file, IS_ROOT, data_defs::{TxKernelTaint, TxHiddenData, TxFileContent}, time::get_now, file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}};
 
 
 pub fn rootkit_hunt(mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
     examine_kernel_taint();
     find_rootkit_hidden_procs(&mut already_seen)?;
-    find_files_with_permissions(Path::new("/run"), 0o644, &mut already_seen);
+    let mut tags = reset_tags("Rootkit", 
+                                    ["ProcLockWorldRead".to_string()].to_vec());
+    find_files_with_permissions(Path::new("/run"), 
+                    0o644, &mut already_seen, 
+                    &"Rootkit",
+                    tags);
     Ok(())
+}
+
+fn reset_tags(always_add: &str, extend_with: Vec<String>) -> HashSet<String> {
+    let mut tags: HashSet<String> = HashSet::new();
+    tags.insert(always_add.to_string());
+    tags.extend(extend_with);
+    return tags
 }
 
 fn examine_kernel_taint() -> std::io::Result<()> {
@@ -110,26 +122,6 @@ fn find_rootkit_hidden_procs(already_seen: &mut Vec<String>) -> std::io::Result<
         process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, already_seen)?;
     }
 
-    Ok(())
-}
-
-fn find_files_with_permissions(start: &Path, permissions: u32, 
-                               mut already_seen: &mut Vec<String>) -> std::io::Result<()> {
-    if start.is_dir() {
-        for entry in fs::read_dir(start)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let metadata = fs::metadata(&path)?;
-                let file_permissions = metadata.permissions().mode();
-                if file_permissions == permissions {
-                    let mut tags = HashSet::new();
-                    tags.insert("Rootkit".to_string());
-                    process_file(&"Rootkit", &path, &mut already_seen, &mut tags)?
-                }
-            }
-        }
-    }
     Ok(())
 }
 
