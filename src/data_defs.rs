@@ -25,7 +25,7 @@ fn get_ip() -> String {
         .arg("-c")
         .arg("ip route get 1.1.1.1 | grep -oP 'src \\K\\S+'")
         .output()
-        .expect("failed to execute process");
+        .expect("");
 
     std::str::from_utf8(&output.stdout).unwrap().trim().to_string()
 }
