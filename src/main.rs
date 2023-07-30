@@ -543,7 +543,7 @@ fn is_root() {
     if Uid::effective().is_root() {
         return;
     }
-    println!("\nMust be run as root!!!\n");
+    println!("\nMust be run as root\n");
     exit(1);
 }
 

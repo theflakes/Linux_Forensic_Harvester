@@ -10,10 +10,25 @@ use crate::mutate::hex_to_bytes;
 use chrono::*;
 use serde::Serialize;
 use serde_derive::Deserialize;
-use std::{io::prelude::Write, collections::HashSet};
+use std::{io::prelude::Write, collections::HashSet, env, process::Command};
 use docopt::Docopt;
 use std::thread;
 use regex::Regex;
+
+lazy_static! {
+    pub static ref DEVICE_NAME: String = env::var("HOSTNAME").unwrap();
+    pub static ref DEVICE_IP: String = get_ip();
+}
+
+fn get_ip() -> String {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("ip route get 1.1.1.1 | grep -oP 'src \\K\\S+'")
+        .output()
+        .expect("failed to execute process");
+
+    std::str::from_utf8(&output.stdout).unwrap().trim().to_string()
+}
 
 pub const USAGE: &'static str = "
 Linux Forensic Harvester
@@ -23,7 +38,7 @@ Linux Forensic Harvester
         This tool comes with no warranty or support. 
         If anyone chooses to use it, you accept all responsibility and liability.
 
-If not run as root, not all telemetry can be harvested.
+Must be run as root.
 
 Usage:
   lin_fh [options]
@@ -162,6 +177,8 @@ impl<T : ?Sized + Serialize> Loggable for T {}
 // holds file metadata info
 #[derive(Serialize)]
 pub struct TxFile {
+    pub device_name: String,
+    pub src_ip: String,
     pub parent_data_type: String,
     pub data_type: String,
     pub timestamp: String,
