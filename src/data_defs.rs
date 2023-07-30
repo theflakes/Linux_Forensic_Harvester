@@ -177,8 +177,8 @@ impl<T : ?Sized + Serialize> Loggable for T {}
 // holds file metadata info
 #[derive(Serialize)]
 pub struct TxFile {
-    pub device_name: String,
-    pub src_ip: String,
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     pub data_type: String,
     pub timestamp: String,
@@ -217,6 +217,8 @@ impl TxFile {
             permissions: String,
             tags: HashSet<String>,) -> TxFile {
         TxFile {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -246,6 +248,8 @@ impl TxFile {
 // holds interesting content found in files
 #[derive(Serialize)]
 pub struct TxFileContent {
+    device_name: String,
+    src_ip: String,
     #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "FileContent")]
@@ -266,6 +270,8 @@ impl TxFileContent {
             bytes: String,
             tags: HashSet<String>,) -> TxFileContent {
         TxFileContent {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -285,6 +291,8 @@ impl TxFileContent {
 // used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
 pub struct TxHiddenData {
+    device_name: String,
+    src_ip: String,
     #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "HiddenData")]
@@ -305,6 +313,8 @@ impl TxHiddenData {
             size_read: u64,
             tags: HashSet<String>) -> TxHiddenData {
         TxHiddenData {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -324,6 +334,8 @@ impl TxHiddenData {
 // used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
 pub struct TxKernelTaint {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "KernelTaint")]
     pub data_type: String,
@@ -343,6 +355,8 @@ impl TxKernelTaint {
             info: String,
             tags: HashSet<String>) -> TxKernelTaint {
         TxKernelTaint {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -362,6 +376,8 @@ impl TxKernelTaint {
 // holds symlink metdata
 #[derive(Serialize)]
 pub struct TxLink {
+    device_name: String,
+    src_ip: String,
     #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "ShellLink")]
@@ -392,6 +408,8 @@ impl TxLink {
             target_exists: bool,
             tags: HashSet<String>) -> TxLink {
         TxLink {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -416,6 +434,8 @@ impl TxLink {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 pub struct TxProcess {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "Process")]
     pub data_type: String,
@@ -447,6 +467,8 @@ impl TxProcess {
             current_working_directory: String,
             tags: HashSet<String>) -> TxProcess {
         TxProcess {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -472,6 +494,8 @@ impl TxProcess {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 pub struct TxProcessFile {
+    device_name: String,
+    src_ip: String,
     #[serde(default = "Process")]
     pub parent_data_type: String,
     #[serde(default = "ProcessOpenFile")]
@@ -494,6 +518,8 @@ impl TxProcessFile {
             exists: bool,
             tags: HashSet<String>) -> TxProcessFile {
         TxProcessFile {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -514,6 +540,8 @@ impl TxProcessFile {
 // hold local user metadata
 #[derive(Serialize)]
 pub struct TxLocalUser {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "LocalUser")]
     pub data_type: String,
@@ -539,6 +567,8 @@ impl TxLocalUser {
             shell: String,
             tags: HashSet<String>) -> TxLocalUser {
         TxLocalUser {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -561,6 +591,8 @@ impl TxLocalUser {
 // hold group metadata
 #[derive(Serialize)]
 pub struct TxLocalGroup {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "LocalGroup")]
     pub data_type: String,
@@ -580,6 +612,8 @@ impl TxLocalGroup {
             members: String,
             tags: HashSet<String>) -> TxLocalGroup {
         TxLocalGroup {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -599,6 +633,8 @@ impl TxLocalGroup {
 // hold loaded kernel modules metadata
 #[derive(Serialize)]
 pub struct TxLoadedModule {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "KernelModule")]
     pub data_type: String,
@@ -624,6 +660,8 @@ impl TxLoadedModule {
             memory_offset: String,
             tags: HashSet<String>) -> TxLoadedModule {
         TxLoadedModule {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -646,6 +684,8 @@ impl TxLoadedModule {
 // hold mount point metadata
 #[derive(Serialize)]
 pub struct TxMountPoint {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "MountPoint")]
     pub data_type: String,
@@ -667,6 +707,8 @@ impl TxMountPoint {
             mount_options: String,
             tags: HashSet<String>) -> TxMountPoint {
         TxMountPoint {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -687,6 +729,8 @@ impl TxMountPoint {
 // hold network connection metadata
 #[derive(Serialize)]
 pub struct TxNetConn {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "NetConn")]
     pub data_type: String,
@@ -718,6 +762,8 @@ impl TxNetConn {
             inode: i128,
             tags: HashSet<String>) -> TxNetConn {
         TxNetConn {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
@@ -743,6 +789,8 @@ impl TxNetConn {
 // hold network connection metadata
 #[derive(Serialize)]
 pub struct TxCron {
+    device_name: String,
+    src_ip: String,
     pub parent_data_type: String,
     #[serde(default = "Cron")]
     pub data_type: String,
@@ -772,6 +820,8 @@ impl TxCron {
             command_line: String,
             tags: HashSet<String>) -> TxCron {
         TxCron {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
             parent_data_type,
             data_type,
             timestamp,
