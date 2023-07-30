@@ -17,7 +17,8 @@ use regex::Regex;
 use hostname::*;
 
 lazy_static! {
-    pub static ref DEVICE_NAME: String = hostname::get().unwrap_or_default().to_string_lossy().to_owned().to_string();
+    pub static ref DEVICE_NAME: String = hostname::get().unwrap_or_default()
+                                        .to_string_lossy().to_owned().to_string();
     pub static ref DEVICE_IP: String = get_ip();
 }
 
