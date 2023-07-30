@@ -1,6 +1,8 @@
 /*
     References: 
         https://github.com/tstromberg/sunlight/tree/main
+
+    Needs major cleanups but just want to get it to work as soon as I can.
 */
 
 use std::{
