@@ -42,10 +42,6 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 
-lazy_static! {
-    pub static ref IS_ROOT: bool = Uid::effective().is_root();
-}
-
 // file paths we want to watch all files in
 const WATCH_PATHS: [&str; 14] = [
     "/etc",
@@ -116,14 +112,14 @@ fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<Vec<String>>
     identify files being referenced in the file content 
     this is so we can harvest the metadata on these files as well
 */
-fn find_paths(text: &str, already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn find_paths(text: &str, files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r#"(?mix)(?:^|[\x20"':=!|])((?:/[\w.-]+)+)"#)
                                         .expect("Invalid Regex");
     }
     for c in RE.captures_iter(text) {
         let path = Path::new(&c[1]);
-        process_file("FileContent", path, already_seen, &mut HashSet::new())?;
+        process_file("FileContent", path, files_already_seen, &mut HashSet::new())?;
     }
     Ok(())
 }
@@ -193,7 +189,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                 if fields.len() > 8 {
                     let (local_ip, local_port) = get_ip_port(fields[1].trim())?;
                     let (remote_ip, remote_port) = get_ip_port(fields[2].trim())?;
-                    TxNetConn::new(*IS_ROOT, "Process".to_string(), "NetConn".to_string(), get_now()?, 
+                    TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7])?, local_ip, 
                                     local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
                                     to_int128(&inode)?, HashSet::new()).report_log();
@@ -209,14 +205,14 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
 /*
     report on open files for each process
 */
-fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
     let data_type = "ProcessOpenFile".to_string();
-    TxProcessFile::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
+    TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
                         path_exists(fd), HashSet::new()).report_log();
     let mut tags: HashSet<String> = HashSet::new();
     if pdt.eq("Rootkit") { tags.insert("Rootkit".to_string()); }
-    process_file(&data_type, Path::new(path), already_seen, &mut tags)?;
+    process_file(&data_type, Path::new(path), files_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -227,7 +223,8 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, already_seen: &m
     socket: --> open network connection
     pipe: --> open redirector
 */
-fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str, already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str, 
+                            files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
     let descriptors = push_file_path(root_path, "/fd")?;
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
@@ -236,7 +233,7 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str, al
         let entry: String = resolve_link(d.path())?.to_string_lossy().into();
         match entry {
             ref s if s.contains("socket:") => process_net_conn(path, &entry, pid)?,
-            _ => match process_open_file(&pdt, &d.path().to_string_lossy(), &entry, pid, already_seen) {
+            _ => match process_open_file(&pdt, &d.path().to_string_lossy(), &entry, pid, files_already_seen) {
                 Ok(f) => f,
                 Err(_e) => continue }
         };
@@ -245,7 +242,10 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str, al
 }
 
 // gather and report process information via procfs
-fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, already_seen: &mut HashSet<String>, tags: &mut HashSet<String> ) -> std::io::Result<()> {
+fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, 
+                   files_already_seen: &mut HashSet<String>, 
+                   tags: &mut HashSet<String>, 
+                   procs_already_seen: &mut HashMap<String, String> ) -> std::io::Result<()> {
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let exists = path_exists(&path);
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline")?)?;
@@ -260,14 +260,18 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf, already_seen: &mut
     };
     let pid = to_int32(sub)?;
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat")?)?, " ")?;
-    let mut data_type = "Process".to_string();
     let mut ppid: i32 = 0;
     if stat.len() > 3 { ppid = to_int32(&stat[3])?; }
-    TxProcess::new(*IS_ROOT, pdt.to_string(), data_type.clone(), get_now()?, 
+    let mut data_type = "Process".to_string();
+    TxProcess::new(pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, comm, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
                     cwd.to_string_lossy().into(), tags.clone()).report_log();
-    process_file_descriptors(&path, root_path, pid, &data_type, already_seen)?;
+    // do not process file descriptors if we've already process them
+    if procs_already_seen.get(root_path).is_none() || !procs_already_seen.get(root_path).unwrap().eq(&path) {
+        procs_already_seen.insert(root_path.to_string(), path.clone());
+        process_file_descriptors(&path, root_path, pid, &data_type, files_already_seen)?;
+    }  
     Ok(())
 }
 
@@ -283,8 +287,10 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         if dependencies.ends_with(",") { dependencies.pop(); }
         let state = values[4].to_string();
         let offset = values[5].to_string();
-        TxLoadedModule::new(*IS_ROOT, pdt.to_string(), "KernelModule".to_string(), get_now()?, 
-                            name, size, loaded, dependencies, state, offset, HashSet::new()).report_log();
+        TxLoadedModule::new(pdt.to_string(), 
+                            "KernelModule".to_string(), get_now()?, 
+                            name, size, loaded, dependencies, state, offset, 
+                            HashSet::new()).report_log();
     }
     Ok(())
 }
@@ -298,14 +304,17 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         let mount_point = values[1].to_string();
         let file_system_type = values[2].to_string();
         let mount_options = values[3].replace(",", ", ").trim().to_string();
-        TxMountPoint::new(*IS_ROOT, pdt.to_string(), "MountPoint".to_string(), get_now()?, 
-                            name, mount_point, file_system_type, mount_options, HashSet::new()).report_log();
+        TxMountPoint::new(pdt.to_string(), 
+                            "MountPoint".to_string(), get_now()?, 
+                            name, mount_point, file_system_type, mount_options, 
+                            HashSet::new()).report_log();
     }
     Ok(())
 }
 
 // start processing procfs to gather process metadata
-fn examine_procs(pdt: &str, path: &str, already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn examine_procs(pdt: &str, path: &str, files_already_seen: &mut HashSet<String>, 
+                procs_already_seen: &mut HashMap<String, String>) -> std::io::Result<()> {
     lazy_static! { 
         static ref PID: Regex = Regex::new(r#"(?mix)^/proc/\d{1,5}$"#)
                                         .expect("Invalid Regex");
@@ -325,8 +334,8 @@ fn examine_procs(pdt: &str, path: &str, already_seen: &mut HashSet<String>) -> s
                 if !PID.is_match(&p) { continue };
                 let bin = push_file_path(p, "/exe")?;
                 let mut tags: HashSet<String> = HashSet::new();
-                process_process(&pdt, &p, &bin, already_seen, &mut tags)?;
-                match process_file("Process", &bin, already_seen, &mut tags)  {
+                process_process(&pdt, &p, &bin, files_already_seen, &mut tags, procs_already_seen)?;
+                match process_file("Process", &bin, files_already_seen, &mut tags)  {
                     Ok(_) => continue,
                     Err(_) => continue,
                 };
@@ -348,7 +357,7 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let description = values[4].to_string();
         let home_directory = values[5].to_string();
         let shell = values[6].to_string();
-        TxLocalUser::new(*IS_ROOT, pdt.to_string(), "LocalUser".to_string(), get_now()?, 
+        TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
                         account_name, uid, gid, description, home_directory, 
                         shell, HashSet::new()).report_log();
     }
@@ -363,7 +372,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let group_name = values[0].to_string();
         let gid: u32 = values[2].to_string().parse().unwrap();
         let members = values[3].to_string();
-        TxLocalGroup::new(*IS_ROOT, pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
+        TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
                             group_name, gid, members, HashSet::new()).report_log();
     }
     Ok(())
@@ -383,7 +392,7 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
         let day_of_week = fields[4].to_string();
         let account_name = fields[5].to_string();
         let command_line = fields[6].to_string();
-        TxCron::new(*IS_ROOT, pdt.to_string(), "Cron".to_string(), get_now()?, 
+        TxCron::new(pdt.to_string(), "Cron".to_string(), get_now()?, 
                     path.to_string(), minute, hour, day_of_month, month, 
                     day_of_week, account_name, command_line, HashSet::new()).report_log();
     }
@@ -391,14 +400,14 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
 }
 
 // process cron directories
-fn process_cron(pdt: &str, path: &str, mut already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn process_cron(pdt: &str, path: &str, files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
     for entry in WalkDir::new(path)
         .max_depth(2)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir()) {
             parse_cron(pdt, &entry.path().to_string_lossy())?;
-            match process_file("Cron", entry.path(), &mut already_seen, &mut HashSet::new()) {
+            match process_file("Cron", entry.path(), files_already_seen, &mut HashSet::new()) {
                 Ok(_) => continue,
                 Err(_) => continue,
             };
@@ -410,12 +419,12 @@ fn process_cron(pdt: &str, path: &str, mut already_seen: &mut HashSet<String>) -
     check if a given file is one we want to inspect the contents of 
     for interesting strings and references to other files
 */
-fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u64, already_seen: &mut HashSet<String>) -> std::io::Result<(Vec<String>)> {
+fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u64, files_already_seen: &mut HashSet<String>) -> std::io::Result<(Vec<String>)> {
     let mut tags: Vec<String> = Vec::new();
     if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
-            find_paths(&data, already_seen)?;
+            find_paths(&data, files_already_seen)?;
             let size_read = data.len() as u64;
             get_rootkit_hidden_file_data(file_path, size)?;
             if size_read < ARGS.flag_max { tags = run_hunts(pdt, path, &data)? };
@@ -425,10 +434,10 @@ fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u6
 }
 
 // harvest a file's metadata
-fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut HashSet<String>, tags: &mut HashSet<String>) -> std::io::Result<()> {
+fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
-    if (file_path.is_symlink() || file_path.is_file()) && !already_seen.contains(&p.clone()) {
-        already_seen.insert(p);    // track files we've processed so we don't process them more than once
+    if (file_path.is_symlink() || file_path.is_file()) && !files_already_seen.contains(&p.clone()) {
+        files_already_seen.insert(p);    // track files we've processed so we don't process them more than once
         let (parent_data_type, path_buf) = get_link_info(&pdt, file_path)?; // is this file a symlink? TRUE: get symlink info and path to linked file
         
         let file = open_file(&path_buf)?;
@@ -464,10 +473,10 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut HashSet<Stri
             "/etc/group" => parse_groups(pdt, "/etc/group".into())?,
             "/etc/crontab" => parse_cron(pdt, "/etc/crontab".into())?,
             _ => {
-                tags.extend(watch_file(pdt, orig_path, path_str, &mime_type, size, already_seen)?)
+                tags.extend(watch_file(pdt, orig_path, path_str, &mime_type, size, files_already_seen)?)
             }
         }
-        TxFile::new(*IS_ROOT, parent_data_type, "File".to_string(), get_now()?, 
+        TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
             nlink, inode, perms, tags.to_owned()).report_log();
@@ -476,16 +485,17 @@ fn process_file(mut pdt: &str, file_path: &Path, already_seen: &mut HashSet<Stri
 }
 
 // process directories and sub dirs we are interested in
-fn process_directory_files(pdt: &str, path: &str, mut already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn process_directory_files(pdt: &str, path: &str, files_already_seen: &mut HashSet<String>, 
+                            procs_already_seen: &mut HashMap<String, String>) -> std::io::Result<()> {
     match path {
-        "/proc" => examine_procs(&pdt, &path, &mut already_seen)?,
-        "/etc/cron.d" => process_cron(&pdt, path, &mut already_seen)?,
-        "/var/spool/cron" => process_cron(&pdt, path, &mut already_seen)?,
+        "/proc" => examine_procs(&pdt, &path, files_already_seen, procs_already_seen)?,
+        "/etc/cron.d" => process_cron(&pdt, path, files_already_seen)?,
+        "/var/spool/cron" => process_cron(&pdt, path, files_already_seen)?,
         _ => for entry in WalkDir::new(path)
                     .max_depth(ARGS.flag_depth)
                     .into_iter()
                     .filter_map(|e| e.ok()) {
-                process_file(&pdt, entry.path(), &mut already_seen, &mut HashSet::new());
+                process_file(&pdt, entry.path(), files_already_seen, &mut HashSet::new());
                 sleep();
             },
     }
@@ -505,7 +515,7 @@ fn str_starts_with(path: &str) -> bool {
     ls: reading directory '/proc/4635/task/4635/net': Invalid argument
     total 0
 */
-fn find_suid_sgid(already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn find_suid_sgid(files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
     for entry in WalkDir::new("/")
                     .into_iter()
                     .filter_entry(|e| !str_starts_with(&e.path().to_string_lossy()))
@@ -518,7 +528,7 @@ fn find_suid_sgid(already_seen: &mut HashSet<String>) -> std::io::Result<()> {
             let mode = md.mode();
             let (is_suid, is_sgid) = is_suid_sgid(mode);
             if is_suid || is_sgid {
-                match process_file("SuidSgid", entry.path(), already_seen, &mut HashSet::new()) {
+                match process_file("SuidSgid", entry.path(), files_already_seen, &mut HashSet::new()) {
                     Ok(_) => continue,
                     Err(_) => continue,
                 };
@@ -541,19 +551,32 @@ fn is_root() {
 fn main() -> std::io::Result<()> {
     is_root();
 
-    let mut already_seen: HashSet<String> = HashSet::new();  // cache directories and files already examined to avoid multiple touches and possible infinite loops
-
-    // for path in WATCH_PATHS.iter() {
-    //     if !path_exists(path) { continue }
-    //     match process_directory_files("", path, &mut already_seen) {
-    //         Ok(f) => f,
-    //         Err(_e) => continue};
-    // }
-
-    rootkit_hunt(&mut already_seen)?;
-    
-    if ARGS.flag_suidsgid {
-        find_suid_sgid(&mut already_seen)?; 
+    if !ARGS.flag_forensics && !ARGS.flag_rootkit && !ARGS.flag_suidsgid {
+        println!("{}", USAGE);
+        return Ok(())
     }
+
+    // catch files and processes already examined
+    let mut files_already_seen: HashSet<String> = HashSet::new();
+    let mut procs_already_seen: HashMap<String, String> = HashMap::new();
+
+    if ARGS.flag_forensics {
+        for path in WATCH_PATHS.iter() {
+            if !path_exists(path) { continue }
+            match process_directory_files("", path, &mut files_already_seen, &mut procs_already_seen) {
+                Ok(f) => f,
+                Err(_e) => continue};
+        }
+    }
+
+    if ARGS.flag_rootkit {
+        rootkit_hunt(&mut files_already_seen, &mut procs_already_seen)?;
+    }
+    
+
+    if ARGS.flag_suidsgid {
+        find_suid_sgid(&mut files_already_seen)?; 
+    }
+
     Ok(())
 }

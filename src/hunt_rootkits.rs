@@ -1,23 +1,32 @@
+/*
+    References: 
+        https://github.com/tstromberg/sunlight/tree/main
+*/
+
 use std::{collections::{HashSet, HashMap}, time::{SystemTime, UNIX_EPOCH}, path::Path, os::unix::prelude::{MetadataExt, PermissionsExt}, fs, io::{BufReader, BufRead, self}};
 use memmap2::MmapOptions;
-use crate::{process_process, process_file, IS_ROOT, data_defs::{TxKernelTaint, TxHiddenData, TxFileContent}, time::get_now, file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}};
+use crate::{process_process, process_file, data_defs::{TxKernelTaint, TxHiddenData, TxFileContent}, time::get_now, file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}};
 
 
-pub fn rootkit_hunt(mut already_seen: &mut HashSet<String>) -> io::Result<()> {
+pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>, 
+                    procs_already_seen: &mut HashMap<String, String>) -> io::Result<()> {
     examine_kernel_taint();
-    find_rootkit_hidden_procs(&mut already_seen)?;
+    find_rootkit_hidden_procs(files_already_seen, procs_already_seen)?;
     let mut tags = reset_tags("Rootkit", 
                                     ["ProcLockWorldRead".to_string()].to_vec());
     find_files_with_permissions(Path::new("/run"), 
-                    0o644, &mut already_seen, 
+                    0o644, files_already_seen, 
                     &"Rootkit",
                     tags);
     let mut tags = reset_tags("Rootkit", 
                     ["ProcMimic".to_string()].to_vec());
-    match find_proc_mimics(&mut already_seen, tags) {
+    match find_proc_mimics(files_already_seen, &mut tags, procs_already_seen) {
         Ok(it) => it,
         Err(err) => (()),
     };
+    let mut tags = reset_tags("Rootkit", 
+                    ["ProcHiddenParent".to_string()].to_vec());
+    find_hidden_parent_procs(files_already_seen, &mut tags, procs_already_seen)?;
     Ok(())
 }
 
@@ -78,14 +87,15 @@ fn examine_kernel_taint() -> io::Result<()> {
     }
     let mut tags = HashSet::new();
     tags.insert("Rootkit".to_string());
-    TxKernelTaint::new(*IS_ROOT, "Rootkit".to_string(), 
+    TxKernelTaint::new("Rootkit".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
                         is_tainted, taint, results, 
                         tags).report_log();
     Ok(())
 }
 
-fn find_rootkit_hidden_procs(already_seen: &mut HashSet<String>) -> io::Result<()> {
+fn find_rootkit_hidden_procs(files_already_seen: &mut HashSet<String>, 
+                            procs_already_seen: &mut HashMap<String, String>) -> io::Result<()> {
     let mut visible = HashSet::new();
     let mut tags: HashSet<String> = HashSet::new();
     let proc_dir = Path::new("/proc");
@@ -126,7 +136,8 @@ fn find_rootkit_hidden_procs(already_seen: &mut HashSet<String>) -> io::Result<(
         }
         let exe_path = proc_dir.join(pid.to_string()).join("exe");
         let exe = fs::read_link(&exe_path).ok();
-        process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, already_seen, &mut tags)?;
+        process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, 
+                        files_already_seen, &mut tags, procs_already_seen)?;
     }
 
     Ok(())
@@ -154,14 +165,14 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<(
     }
     let mut tags: HashSet<String> = HashSet::new();
     tags.insert("rootkit".to_string());
-    TxHiddenData::new(*IS_ROOT, 
+    TxHiddenData::new(
         "File".to_string(), 
         "HiddenData".to_string(), 
         get_now()?, 
         (file_path.to_string_lossy()).into_owned(), 
         size, size_read, tags.clone()).report_log();
     if differences.is_empty() { return Ok(()) }
-    TxFileContent::new(*IS_ROOT, 
+    TxFileContent::new(
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
         get_now()?, 
@@ -177,7 +188,8 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<(
     Quickly converted from: https://github.com/tstromberg/sunlight/blob/main/fake-name.sh
     Need to better understand it.
 */
-fn find_proc_mimics(already_seen: &mut HashSet<String>, mut tags: HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>, 
+                    procs_already_seen: &mut HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
     let expected: HashMap<String, i32> = [
         ("/bin/bash".to_string(), 1),
         ("/bin/dash".to_string(), 1),
@@ -225,7 +237,36 @@ fn find_proc_mimics(already_seen: &mut HashSet<String>, mut tags: HashSet<String
             .map(|c| if c.is_numeric() { '#' } else { c })
             .collect();
         if expected.get(&pattern) == Some(&1) { continue; }
-        process_process(&"Rootkit", &base_path.to_string_lossy(), &exe_path, already_seen, &mut tags)?;
+        process_process(&"Rootkit", &base_path.to_string_lossy(), &exe_path, 
+                        files_already_seen, tags, procs_already_seen)?;
+    }
+    Ok(())
+}
+
+fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>,
+                            procs_already_seen: &mut HashMap<String, String>) -> io::Result<()> {
+    let proc_dir = Path::new("/proc");
+    for entry in fs::read_dir(proc_dir)? {
+        let e = entry?;
+        let path = e.path();
+        let exe_path = path.join("exe");
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        if file_name == "self" || !exe_path.exists() {
+            continue;
+        }
+        let status = fs::read_to_string(path.join("status"))?;
+        let parent: u32 = status
+            .lines()
+            .find(|line| line.starts_with("PPid:"))
+            .map(|line| line.split_whitespace().nth(1).unwrap())
+            .unwrap()
+            .parse()
+            .unwrap();
+        if parent == 0 { continue; }
+        if !proc_dir.join(parent.to_string()).join("comm").exists() {
+            process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
+                            files_already_seen, tags, procs_already_seen)?;
+        }
     }
     Ok(())
 }

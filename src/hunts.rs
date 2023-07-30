@@ -23,7 +23,7 @@ pub fn report_finds(pdt: &str, re: &Regex, file: &str, text: &str, flag: &str) -
         let line = &c[0];
         let mut tags: HashSet<String> = HashSet::new();
         tags.insert(flag.to_owned());
-        TxFileContent::new(*crate::IS_ROOT, pdt.to_string(), 
+        TxFileContent::new(pdt.to_string(), 
             "FileContent".to_string(), 
             get_now()?, file.to_string(), line.to_string(), 
             "".to_string(), tags).report_log();

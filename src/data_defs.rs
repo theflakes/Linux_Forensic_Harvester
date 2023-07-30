@@ -26,13 +26,14 @@ Linux Forensic Harvester
 If not run as root, not all telemetry can be harvested.
 
 Usage:
-  lin_fh -d <depth>
+  lin_fh [options]
+  lin_fh -fksl
   lin_fh [--ip <ip> --port <port>] [--depth <depth>]
   lin_fh [--ip <ip> --port <port>] [--limit]
   lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
   lin_fh (-s, --suidsgid) [--limit]
   lin_fh (-r <regex> | --regex <regex>) [-ls] [-d <depth>]
-  lin_fh --max <bytes> [--limit] [-d <depth>] [--suidsgid]
+  lin_fh --max <bytes> [--limit] [-d <depth>]
   lin_fh (-l | --limit)
   lin_fh --start <start_time> [-d <depth>]
   lin_fh --end <start_time> [-d <depth>] [-ls]
@@ -43,14 +44,17 @@ Usage:
 
 Options:
   -d, --depth <depth>   Max directory depth to traverse [default: 5]
+  -f, --forensics       Gather general forensic info
   -h, --help            Print help
-  -i, --ip <ip>         IP address to send output to [default: NONE]
-  -p, --port <port>     Destination port to send output to [default: 80]
   -l, --limit           Limit CPU use
+  -k, --rootkit         Run rootkit hunts
   -m, --max <bytes>     Max size of a text file in bytes to inspect the content
                         of for interesting strings [default: 100000]
                         - Text files will always be searched for references
                           to other files.
+  Remote logging:
+  -i, --ip <ip>         IP address to send output to [default: NONE]
+  -p, --port <port>     Destination port to send output to [default: 80]
   Time window:
     This option will compare the specified date window to the file's 
     ctime, atime, or mtime and only output logs where the one of the dates falls 
@@ -96,6 +100,8 @@ pub struct Args {
     flag_port: u16,
     flag_limit: bool,
     pub flag_depth: usize,
+    pub flag_forensics: bool,
+    pub flag_rootkit: bool,
     pub flag_max: u64,
     pub flag_regex: String,
     pub flag_hex: String,
@@ -156,7 +162,6 @@ impl<T : ?Sized + Serialize> Loggable for T {}
 // holds file metadata info
 #[derive(Serialize)]
 pub struct TxFile {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     pub data_type: String,
     pub timestamp: String,
@@ -177,7 +182,6 @@ pub struct TxFile {
 }
 impl TxFile {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -196,7 +200,6 @@ impl TxFile {
             permissions: String,
             tags: HashSet<String>,) -> TxFile {
         TxFile {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -226,7 +229,6 @@ impl TxFile {
 // holds interesting content found in files
 #[derive(Serialize)]
 pub struct TxFileContent {
-    pub run_as_root: bool,
     #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "FileContent")]
@@ -239,7 +241,6 @@ pub struct TxFileContent {
 }
 impl TxFileContent {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -248,7 +249,6 @@ impl TxFileContent {
             bytes: String,
             tags: HashSet<String>,) -> TxFileContent {
         TxFileContent {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -268,7 +268,6 @@ impl TxFileContent {
 // used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
 pub struct TxHiddenData {
-    pub run_as_root: bool,
     #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "HiddenData")]
@@ -281,7 +280,6 @@ pub struct TxHiddenData {
 }
 impl TxHiddenData {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -290,7 +288,6 @@ impl TxHiddenData {
             size_read: u64,
             tags: HashSet<String>) -> TxHiddenData {
         TxHiddenData {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -310,7 +307,6 @@ impl TxHiddenData {
 // used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
 pub struct TxKernelTaint {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "KernelTaint")]
     pub data_type: String,
@@ -322,7 +318,6 @@ pub struct TxKernelTaint {
 }
 impl TxKernelTaint {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -331,7 +326,6 @@ impl TxKernelTaint {
             info: String,
             tags: HashSet<String>) -> TxKernelTaint {
         TxKernelTaint {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -351,7 +345,6 @@ impl TxKernelTaint {
 // holds symlink metdata
 #[derive(Serialize)]
 pub struct TxLink {
-    pub run_as_root: bool,
     #[serde(default = "File")]
     pub parent_data_type: String,
     #[serde(default = "ShellLink")]
@@ -369,7 +362,6 @@ pub struct TxLink {
 }
 impl TxLink {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -383,7 +375,6 @@ impl TxLink {
             target_exists: bool,
             tags: HashSet<String>) -> TxLink {
         TxLink {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -408,7 +399,6 @@ impl TxLink {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 pub struct TxProcess {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "Process")]
     pub data_type: String,
@@ -426,7 +416,6 @@ pub struct TxProcess {
 }
 impl TxProcess {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -441,7 +430,6 @@ impl TxProcess {
             current_working_directory: String,
             tags: HashSet<String>) -> TxProcess {
         TxProcess {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -467,7 +455,6 @@ impl TxProcess {
 // hold process metadata info from procfs
 #[derive(Serialize)]
 pub struct TxProcessFile {
-    pub run_as_root: bool,
     #[serde(default = "Process")]
     pub parent_data_type: String,
     #[serde(default = "ProcessOpenFile")]
@@ -481,7 +468,6 @@ pub struct TxProcessFile {
 }
 impl TxProcessFile {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -491,7 +477,6 @@ impl TxProcessFile {
             exists: bool,
             tags: HashSet<String>) -> TxProcessFile {
         TxProcessFile {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -512,7 +497,6 @@ impl TxProcessFile {
 // hold local user metadata
 #[derive(Serialize)]
 pub struct TxLocalUser {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "LocalUser")]
     pub data_type: String,
@@ -527,7 +511,6 @@ pub struct TxLocalUser {
 }
 impl TxLocalUser {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -539,7 +522,6 @@ impl TxLocalUser {
             shell: String,
             tags: HashSet<String>) -> TxLocalUser {
         TxLocalUser {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -562,7 +544,6 @@ impl TxLocalUser {
 // hold group metadata
 #[derive(Serialize)]
 pub struct TxLocalGroup {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "LocalGroup")]
     pub data_type: String,
@@ -574,7 +555,6 @@ pub struct TxLocalGroup {
 }
 impl TxLocalGroup {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -583,7 +563,6 @@ impl TxLocalGroup {
             members: String,
             tags: HashSet<String>) -> TxLocalGroup {
         TxLocalGroup {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -603,7 +582,6 @@ impl TxLocalGroup {
 // hold loaded kernel modules metadata
 #[derive(Serialize)]
 pub struct TxLoadedModule {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "KernelModule")]
     pub data_type: String,
@@ -618,7 +596,6 @@ pub struct TxLoadedModule {
 }
 impl TxLoadedModule {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -630,7 +607,6 @@ impl TxLoadedModule {
             memory_offset: String,
             tags: HashSet<String>) -> TxLoadedModule {
         TxLoadedModule {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -653,7 +629,6 @@ impl TxLoadedModule {
 // hold mount point metadata
 #[derive(Serialize)]
 pub struct TxMountPoint {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "MountPoint")]
     pub data_type: String,
@@ -666,7 +641,6 @@ pub struct TxMountPoint {
 }
 impl TxMountPoint {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -676,7 +650,6 @@ impl TxMountPoint {
             mount_options: String,
             tags: HashSet<String>) -> TxMountPoint {
         TxMountPoint {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -697,7 +670,6 @@ impl TxMountPoint {
 // hold network connection metadata
 #[derive(Serialize)]
 pub struct TxNetConn {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "NetConn")]
     pub data_type: String,
@@ -715,7 +687,6 @@ pub struct TxNetConn {
 }
 impl TxNetConn {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -730,7 +701,6 @@ impl TxNetConn {
             inode: i128,
             tags: HashSet<String>) -> TxNetConn {
         TxNetConn {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,
@@ -756,7 +726,6 @@ impl TxNetConn {
 // hold network connection metadata
 #[derive(Serialize)]
 pub struct TxCron {
-    pub run_as_root: bool,
     pub parent_data_type: String,
     #[serde(default = "Cron")]
     pub data_type: String,
@@ -773,7 +742,6 @@ pub struct TxCron {
 }
 impl TxCron {
     pub fn new(
-            run_as_root: bool,
             parent_data_type: String,
             data_type: String,
             timestamp: String,
@@ -787,7 +755,6 @@ impl TxCron {
             command_line: String,
             tags: HashSet<String>) -> TxCron {
         TxCron {
-            run_as_root,
             parent_data_type,
             data_type,
             timestamp,

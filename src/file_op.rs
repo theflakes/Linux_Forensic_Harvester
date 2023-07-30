@@ -176,7 +176,7 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String,
     let wtime = format_date(link.modified()?.into())?;
     let size = link.len();
     if not_in_time_window(&atime, &ctime, &wtime)? { return Ok(()) }
-    TxLink::new(*crate::IS_ROOT, pdt.to_string(), 
+    TxLink::new(pdt.to_string(), 
                     "ShellLink".to_string(), get_now()?, 
                     link_path, file_path, atime, 
                     wtime, ctime, size, hidden, 
@@ -253,7 +253,7 @@ pub fn file_to_vec(filename: &str) -> io::Result<Vec<String>> {
 
 
 pub fn find_files_with_permissions(start: &Path, permissions: u32, 
-                               mut already_seen: &mut HashSet<String>,
+                               mut files_already_seen: &mut HashSet<String>,
                                pdt: &str,
                                mut tags: HashSet<String>) -> std::io::Result<()> {
     if start.is_dir() {
@@ -264,7 +264,7 @@ pub fn find_files_with_permissions(start: &Path, permissions: u32,
                 let metadata = fs::metadata(&path)?;
                 let file_permissions = metadata.permissions().mode();
                 if file_permissions == permissions {
-                    process_file(pdt, &path, &mut already_seen, &mut tags)?
+                    process_file(pdt, &path, &mut files_already_seen, &mut tags)?
                 }
             }
         }
