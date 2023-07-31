@@ -146,7 +146,7 @@ pub fn sleep() {
     }
 }
 
-pub fn sort_tags(tags: HashSet<String>) -> Vec<String> {
+pub fn sort_hastset(tags: HashSet<String>) -> Vec<String> {
     let mut vec: Vec<String> = tags.into_iter().collect();
     vec.sort();
     return vec

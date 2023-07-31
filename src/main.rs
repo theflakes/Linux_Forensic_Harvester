@@ -266,7 +266,7 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
     TxProcess::new(pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, comm, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
-                    cwd.to_string_lossy().into(), sort_tags(tags.clone())).report_log();
+                    cwd.to_string_lossy().into(), sort_hastset(tags.clone())).report_log();
     // do not process file descriptors if we've already process them
     if procs_already_seen.get(root_path).is_none() || !procs_already_seen.get(root_path).unwrap().eq(&path) {
         procs_already_seen.insert(root_path.to_string(), path.clone());
@@ -481,7 +481,7 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
         TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
-            nlink, inode, perms, sort_tags(tags.to_owned())).report_log();
+            nlink, inode, perms, sort_hastset(tags.to_owned())).report_log();
     }
     Ok(())
 }

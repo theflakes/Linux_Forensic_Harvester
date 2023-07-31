@@ -16,7 +16,7 @@ use std::{
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
-    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_tags}, 
+    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hastset}, 
     time::get_now, 
     file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}};
 
@@ -108,7 +108,7 @@ fn examine_kernel_taint(tags: &mut HashSet<String>) -> io::Result<()> {
     TxKernelTaint::new("Rootkit".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
                         is_tainted, taint, results, 
-                        sort_tags(tags.clone())).report_log();
+                        sort_hastset(tags.clone())).report_log();
     Ok(())
 }
 
@@ -188,14 +188,14 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<H
         "HiddenData".to_string(), 
         get_now()?, 
         (file_path.to_string_lossy()).into_owned(), 
-        size, size_read, sort_tags(tags.clone())).report_log();
+        size, size_read, sort_hastset(tags.clone())).report_log();
     TxFileContent::new(
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
         get_now()?, 
         file_path.to_string_lossy().into_owned(), 
         String::from_utf8_lossy(&differences).into_owned(), 
-        u8_to_hex_string(&differences)?, sort_tags(tags.clone())).report_log();
+        u8_to_hex_string(&differences)?, sort_hastset(tags.clone())).report_log();
     Ok(tags)
 }
 

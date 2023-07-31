@@ -26,7 +26,7 @@ pub fn report_finds(pdt: &str, re: &Regex, file: &str, text: &str, flag: &str) -
         TxFileContent::new(pdt.to_string(), 
             "FileContent".to_string(), 
             get_now()?, file.to_string(), line.to_string(), 
-            "".to_string(), sort_tags(tags)).report_log();
+            "".to_string(), sort_hastset(tags)).report_log();
     }
     Ok(found)
 }
