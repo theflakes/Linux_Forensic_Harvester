@@ -270,6 +270,7 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
     // do not process file descriptors if we've already process them
     if procs_already_seen.get(root_path).is_none() || !procs_already_seen.get(root_path).unwrap().eq(&path) {
         procs_already_seen.insert(root_path.to_string(), path.clone());
+        process_file(pdt, bin, files_already_seen, tags);
         process_file_descriptors(&path, root_path, pid, &data_type, files_already_seen)?;
     }  
     Ok(())

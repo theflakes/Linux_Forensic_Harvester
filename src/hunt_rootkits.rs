@@ -44,6 +44,9 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["ProcHiddenParent".to_string()].to_vec());
     find_hidden_parent_procs(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["ProcHidden".to_string()].to_vec());
+    find_hidden_procs(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -287,51 +290,41 @@ fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>,
     Ok(())
 }
 
-fn find_hidden_procs(tags: &mut HashSet<String>) -> io::Result<()> {
-    let mut visible: HashMap<String, bool> = HashMap::new();
+fn find_hidden_procs(files_already_seen: &mut HashSet<String>,
+                    procs_already_seen: &mut HashMap<String, String>, 
+                    tags: &mut HashSet<String>) -> io::Result<()> {
+    let mut visible: HashSet<String> = HashSet::new();
 
-    for entry in fs::read_dir("/proc").unwrap() {
-        let entry = entry.unwrap();
-        let pid = entry.file_name().into_string().unwrap();
-        visible.insert(pid, true);
+    for entry in fs::read_dir("/proc")? {
+        let entry = entry?;
+        let pid = entry.file_name().into_string().unwrap_or_default();
+        visible.insert(pid);
     }
 
     let pid_max = fs::read_to_string("/proc/sys/kernel/pid_max")?
         .trim()
         .parse::<u32>()
-        .unwrap();
+        .unwrap_or(0);
 
     for i in 2..pid_max {
-        if visible.contains_key(&i.to_string()) {
-            continue;
-        }
-        if !Path::new(&format!("/proc/{}/status", i)).exists() {
-            continue;
-        }
+        if visible.contains(&i.to_string()) { continue; }
+        if !Path::new(&format!("/proc/{}/status", i)).exists() { continue; }
 
-        let status = fs::read_to_string(format!("/proc/{}/status", i)).unwrap();
+        let status = fs::read_to_string(format!("/proc/{}/status", i))?;
         let tgid = status
             .lines()
             .find(|line| line.starts_with("Tgid"))
-            .unwrap()
+            .unwrap_or_default()
             .split_whitespace()
             .nth(1)
-            .unwrap();
+            .unwrap_or_default();
 
-        if tgid != i.to_string() {
-            continue;
-        }
+        if tgid != i.to_string() { continue; }
 
-        let exe = fs::read_link(format!("/proc/{}/exe", i)).unwrap();
-        let cmdline = fs::read_to_string(format!("/proc/{}/cmdline", i))
-            .unwrap()
-            .replace("\0", " ");
-        let comm = fs::read_to_string(format!("/proc/{}/comm", i)).unwrap().trim().to_string();
-
-        println!(
-            "- hidden {}[{}] is running {}: {}",
-            comm, i, exe.to_str().unwrap(), cmdline
-        );
+        let path: std::path::PathBuf = fs::read_link(format!("/proc/{}", i))?;
+        let exe: std::path::PathBuf = fs::read_link(format!("/proc/{}/exe", i))?;
+        process_process(&"Rootkit", &path.to_string_lossy(), &exe, 
+                        files_already_seen, tags, procs_already_seen)?;
     }
     Ok(())
 }

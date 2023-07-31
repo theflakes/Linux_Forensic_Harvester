@@ -155,15 +155,6 @@ fn link_target_exists(link_path: &std::path::Path) -> bool {
     }
 }
 
-fn is_proc_exe_deleted(path: &std::path::Path) -> bool {
-    if path.starts_with("/proc/") && path.ends_with("/exe") {
-        if let Ok(link_target) = fs::read_link(path) {
-            return link_target.to_string_lossy().contains("(deleted)");
-        }
-    }
-    false
-}
-
 // gather metadata for symbolic links
 pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, 
                     file_path: String, hidden: bool, deleted: bool,
@@ -195,10 +186,15 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<
     let sl = fs::symlink_metadata(&link_path)?;
     if sl.file_type().is_symlink() {
         let mut tags: HashSet<String> = HashSet::new();
-        if is_proc_exe_deleted(link_path) {
-            tags.insert("ProcExeDeleted".to_string());
-        }
         path = resolve_link(link_path)?;
+        let lp = path.to_string_lossy().to_string();
+        if lp.contains("(deleted)") {
+            tags.insert("LinkTargetDeleted".to_string());
+            let p = link_path.to_string_lossy().to_string();
+            if p.starts_with("/proc/") && p.ends_with("/exe") {
+                tags.insert("ProcBinDeleted".to_string());
+            }
+        }
         parent_data_type = "ShellLink".to_string();
         process_link(pdt, sl, 
                     link_path.to_string_lossy().into(), 
