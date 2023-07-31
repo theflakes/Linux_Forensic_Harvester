@@ -192,7 +192,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7])?, local_ip, 
                                     local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
-                                    to_int128(&inode)?, Vec::new()).report_log();
+                                    to_u128(&inode)?, Vec::new()).report_log();
                 }
                 matched = true;
             }
@@ -266,7 +266,7 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
     TxProcess::new(pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, comm, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
-                    cwd.to_string_lossy().into(), sort_hastset(tags.clone())).report_log();
+                    cwd.to_string_lossy().into(), sort_hashset(tags.clone())).report_log();
     // do not process file descriptors if we've already process them
     if procs_already_seen.get(root_path).is_none() || !procs_already_seen.get(root_path).unwrap().eq(&path) {
         procs_already_seen.insert(root_path.to_string(), path.clone());
@@ -481,7 +481,7 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
         TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
-            nlink, inode, perms, sort_hastset(tags.to_owned())).report_log();
+            nlink, inode, perms, sort_hashset(tags.to_owned())).report_log();
     }
     Ok(())
 }

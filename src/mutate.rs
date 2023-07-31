@@ -9,8 +9,8 @@ pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
 }
 
 // convert string to i128 or return 0 if fails
-pub fn to_int128(num: &str) -> std::io::Result<i128> {
-    let n = match num.parse::<i128>() {
+pub fn to_u128(num: &str) -> std::io::Result<u128> {
+    let n = match num.parse::<u128>() {
         Ok(i) => i,
         Err(_e) => 0
     };

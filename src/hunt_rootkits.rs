@@ -16,9 +16,9 @@ use std::{
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
-    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hastset}, 
+    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps}, 
     time::get_now, 
-    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}};
+    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}, mutate::{to_u128, to_int32, push_file_path}};
 
 
 pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>, 
@@ -47,6 +47,9 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["ProcHidden".to_string()].to_vec());
     find_hidden_procs(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["ThreadMimic".to_string()].to_vec());
+    find_thread_mimics(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -108,7 +111,7 @@ fn examine_kernel_taint(tags: &mut HashSet<String>) -> io::Result<()> {
     TxKernelTaint::new("Rootkit".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
                         is_tainted, taint, results, 
-                        sort_hastset(tags.clone())).report_log();
+                        sort_hashset(tags.clone())).report_log();
     Ok(())
 }
 
@@ -188,14 +191,14 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<H
         "HiddenData".to_string(), 
         get_now()?, 
         (file_path.to_string_lossy()).into_owned(), 
-        size, size_read, sort_hastset(tags.clone())).report_log();
+        size, size_read, sort_hashset(tags.clone())).report_log();
     TxFileContent::new(
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
         get_now()?, 
         file_path.to_string_lossy().into_owned(), 
         String::from_utf8_lossy(&differences).into_owned(), 
-        u8_to_hex_string(&differences)?, sort_hastset(tags.clone())).report_log();
+        u8_to_hex_string(&differences)?, sort_hashset(tags.clone())).report_log();
     Ok(tags)
 }
 
@@ -325,6 +328,50 @@ fn find_hidden_procs(files_already_seen: &mut HashSet<String>,
         let exe: std::path::PathBuf = fs::read_link(format!("/proc/{}/exe", i))?;
         process_process(&"Rootkit", &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
+    }
+    Ok(())
+}
+
+fn find_thread_mimics(files_already_seen: &mut HashSet<String>,
+                            procs_already_seen: &mut HashMap<String, String>, 
+                            tags: &mut HashSet<String>) -> io::Result<()> {
+    let process_dir = Path::new("/proc");
+    for entry in fs::read_dir(process_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let pid = path.file_name().unwrap_or_default().to_str().unwrap_or_default();
+            if pid.chars().all(char::is_numeric) {
+                let cmdline_path = path.join("cmdline");
+                let cmdline = fs::read_to_string(cmdline_path)?;
+                if cmdline.starts_with('[') {
+                    let exe = path.join("exe");
+                    process_process(&"Rootkit", &path.to_string_lossy(), &exe, 
+                                    files_already_seen, tags, procs_already_seen)?;
+                    let maps_path = path.join("maps");
+                    let file = fs::File::open(maps_path)?;
+                    let reader = BufReader::new(file);
+                    for line in reader.lines() {
+                        let line = line?;
+                        let fields: Vec<&str> = line.split_whitespace().collect();
+                        let address_range = fields[0].to_string();
+                        let permissions = fields[1].to_string();
+                        let offset = fields[2].to_string();
+                        let device = fields[3].to_string();
+                        let inode = to_u128(fields[4])?;
+                        let map_path = fields.get(5).unwrap_or(&"").to_string();
+                        let pdt = "ProcessMap".to_string();
+                        TxProcessMaps::new("Rootkit".to_string(), 
+                                pdt.clone(), get_now()?, 
+                                map_path.clone(), to_int32(pid)?, address_range, 
+                                permissions, offset, device, inode,
+                                sort_hashset(tags.clone())).report_log();
+                        let mp = push_file_path(&map_path, "")?;
+                        process_file(&pdt, &mp, files_already_seen, tags);
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }

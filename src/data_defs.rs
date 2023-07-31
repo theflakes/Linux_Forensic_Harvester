@@ -146,7 +146,7 @@ pub fn sleep() {
     }
 }
 
-pub fn sort_hastset(tags: HashSet<String>) -> Vec<String> {
+pub fn sort_hashset(tags: HashSet<String>) -> Vec<String> {
     let mut vec: Vec<String> = tags.into_iter().collect();
     vec.sort();
     return vec
@@ -545,6 +545,61 @@ impl TxProcessFile {
     }
 }
 
+// hold process maps info from procfs
+#[derive(Serialize)]
+pub struct TxProcessMaps {
+    device_name: String,
+    src_ip: String,
+    #[serde(default = "Process")]
+    pub parent_data_type: String,
+    #[serde(default = "ProcessMaps")]
+    pub data_type: String,
+    pub timestamp: String,
+    pub path: String,
+    pub pid: i32,
+    pub address_range: String,
+    pub permissions: String,
+    pub offset: String,
+    pub device: String,
+    pub inode: u128,
+    pub tags: Vec<String>
+}
+impl TxProcessMaps {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            path: String, 
+            pid: i32, 
+            address_range: String,
+            permissions: String,
+            offset: String,
+            device: String,
+            inode: u128,
+            tags: Vec<String>) -> TxProcessMaps {
+        TxProcessMaps {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            path,
+            pid,
+            address_range,
+            permissions,
+            device,
+            offset,
+            inode,
+            tags
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
 // hold local user metadata
 #[derive(Serialize)]
 pub struct TxLocalUser {
@@ -751,7 +806,7 @@ pub struct TxNetConn {
     pub r_ip: String,   // remote ip
     pub r_port: u16,    // remote port
     pub status: String,
-    pub inode: i128,
+    pub inode: u128,
     pub tags: Vec<String>
 }
 impl TxNetConn {
@@ -767,7 +822,7 @@ impl TxNetConn {
             r_ip: String,
             r_port: u16,
             status: String,
-            inode: i128,
+            inode: u128,
             tags: Vec<String>) -> TxNetConn {
         TxNetConn {
             device_name: DEVICE_NAME.to_string(),
