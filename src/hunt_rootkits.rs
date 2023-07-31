@@ -1,6 +1,8 @@
 /*
     References: 
         https://github.com/tstromberg/sunlight/tree/main
+        https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
+        https://www.linkedin.com/pulse/detecting-linux-kernel-process-masquerading-command-line-rowland/
 
     Needs major cleanups but just want to get it to work as soon as I can.
 */
@@ -21,23 +23,27 @@ use crate::{process_process,
 
 pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>, 
                     procs_already_seen: &mut HashMap<String, String>) -> io::Result<()> {
-    examine_kernel_taint();
-    find_rootkit_hidden_procs(files_already_seen, procs_already_seen)?;
     let mut tags = reset_tags("Rootkit", 
-                                    ["ProcLockWorldRead".to_string()].to_vec());
+                        ["KernelTaint".to_string()].to_vec());
+    examine_kernel_taint(&mut tags);
+    tags = reset_tags("Rootkit", 
+                    ["ProcLockWorldRead".to_string()].to_vec());
+    find_rootkit_hidden_procs(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["ProcLockWorldRead".to_string()].to_vec());
     find_files_with_permissions(Path::new("/run"), 
                     0o644, files_already_seen, 
                     &"Rootkit",
                     tags);
-    let mut tags = reset_tags("Rootkit", 
+    tags = reset_tags("Rootkit", 
                     ["ProcMimic".to_string()].to_vec());
-    match find_proc_mimics(files_already_seen, &mut tags, procs_already_seen) {
+    match find_proc_mimics(files_already_seen, procs_already_seen, &mut tags) {
         Ok(it) => it,
         Err(err) => (()),
     };
-    let mut tags = reset_tags("Rootkit", 
+    tags = reset_tags("Rootkit", 
                     ["ProcHiddenParent".to_string()].to_vec());
-    find_hidden_parent_procs(files_already_seen, &mut tags, procs_already_seen)?;
+    find_hidden_parent_procs(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -48,7 +54,7 @@ fn reset_tags(always_add: &str, extend_with: Vec<String>) -> HashSet<String> {
     return tags
 }
 
-fn examine_kernel_taint() -> io::Result<()> {
+fn examine_kernel_taint(tags: &mut HashSet<String>) -> io::Result<()> {
     let mut taint_bits = HashMap::new();
     taint_bits.insert(0, "proprietary module was loaded");
     taint_bits.insert(1, "module was force loaded");
@@ -96,21 +102,18 @@ fn examine_kernel_taint() -> io::Result<()> {
             results.push_str(&format!("{}\n", line));
         }
     }
-    let mut tags = HashSet::new();
-    tags.insert("Rootkit".to_string());
     TxKernelTaint::new("Rootkit".to_string(), 
                         "KernelTaint".to_string(), get_now()?, 
                         is_tainted, taint, results, 
-                        tags).report_log();
+                        tags.clone()).report_log();
     Ok(())
 }
 
 fn find_rootkit_hidden_procs(files_already_seen: &mut HashSet<String>, 
-                            procs_already_seen: &mut HashMap<String, String>) -> io::Result<()> {
+                            procs_already_seen: &mut HashMap<String, String>, 
+                            mut tags: &mut HashSet<String>) -> io::Result<()> {
     let mut visible = HashSet::new();
-    let mut tags: HashSet<String> = HashSet::new();
     let proc_dir = Path::new("/proc");
-    // let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
     for entry in fs::read_dir(proc_dir)? {
         let entry = entry?;
@@ -160,12 +163,13 @@ fn find_rootkit_hidden_procs(files_already_seen: &mut HashSet<String>,
     based upon a byte by byte comparison
     See: https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
 */
-pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<()> {
+pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<HashSet<String>> {
     let file = fs::File::open(file_path)?;
     let contents = read_file_bytes(&file)?;
     let size_read = contents.len() as u64;
     // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
-    if size <= size_read { return Ok(()) }
+    let mut tags: HashSet<String> = HashSet::new();
+    if size <= size_read { return Ok(tags) }
     let mmap = unsafe { MmapOptions::new().map(&file)? };
     let mut differences = Vec::new();
     for (i, (a, b)) in contents.iter().zip(mmap.iter()).enumerate() {
@@ -174,23 +178,22 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<(
             break;
         }
     }
-    let mut tags: HashSet<String> = HashSet::new();
-    tags.insert("rootkit".to_string());
+    if differences.is_empty() { return Ok(tags) }
+    tags.insert("HiddenData".to_string());
     TxHiddenData::new(
         "File".to_string(), 
         "HiddenData".to_string(), 
         get_now()?, 
         (file_path.to_string_lossy()).into_owned(), 
         size, size_read, tags.clone()).report_log();
-    if differences.is_empty() { return Ok(()) }
     TxFileContent::new(
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
         get_now()?, 
         file_path.to_string_lossy().into_owned(), 
         String::from_utf8_lossy(&differences).into_owned(), 
-        u8_to_hex_string(&differences)?, tags).report_log();
-    Ok(())
+        u8_to_hex_string(&differences)?, tags.clone()).report_log();
+    Ok(tags)
 }
 
 /*
@@ -199,8 +202,9 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<(
     Quickly converted from: https://github.com/tstromberg/sunlight/blob/main/fake-name.sh
     Need to better understand it.
 */
-fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>, 
-                    procs_already_seen: &mut HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
+fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>, 
+                    procs_already_seen: &mut HashMap<String, String>,
+                    tags: &mut HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
     let expected: HashMap<String, i32> = [
         ("/bin/bash".to_string(), 1),
         ("/bin/dash".to_string(), 1),
@@ -254,8 +258,9 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>, tags: &mut Has
     Ok(())
 }
 
-fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>,
-                            procs_already_seen: &mut HashMap<String, String>) -> io::Result<()> {
+fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>,
+                            procs_already_seen: &mut HashMap<String, String>, 
+                            tags: &mut HashSet<String>) -> io::Result<()> {
     let proc_dir = Path::new("/proc");
     for entry in fs::read_dir(proc_dir)? {
         let e = entry?;
@@ -278,6 +283,55 @@ fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>, tags: &mut
             process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                             files_already_seen, tags, procs_already_seen)?;
         }
+    }
+    Ok(())
+}
+
+fn find_hidden_procs(tags: &mut HashSet<String>) -> io::Result<()> {
+    let mut visible: HashMap<String, bool> = HashMap::new();
+
+    for entry in fs::read_dir("/proc").unwrap() {
+        let entry = entry.unwrap();
+        let pid = entry.file_name().into_string().unwrap();
+        visible.insert(pid, true);
+    }
+
+    let pid_max = fs::read_to_string("/proc/sys/kernel/pid_max")?
+        .trim()
+        .parse::<u32>()
+        .unwrap();
+
+    for i in 2..pid_max {
+        if visible.contains_key(&i.to_string()) {
+            continue;
+        }
+        if !Path::new(&format!("/proc/{}/status", i)).exists() {
+            continue;
+        }
+
+        let status = fs::read_to_string(format!("/proc/{}/status", i)).unwrap();
+        let tgid = status
+            .lines()
+            .find(|line| line.starts_with("Tgid"))
+            .unwrap()
+            .split_whitespace()
+            .nth(1)
+            .unwrap();
+
+        if tgid != i.to_string() {
+            continue;
+        }
+
+        let exe = fs::read_link(format!("/proc/{}/exe", i)).unwrap();
+        let cmdline = fs::read_to_string(format!("/proc/{}/cmdline", i))
+            .unwrap()
+            .replace("\0", " ");
+        let comm = fs::read_to_string(format!("/proc/{}/comm", i)).unwrap().trim().to_string();
+
+        println!(
+            "- hidden {}[{}] is running {}: {}",
+            comm, i, exe.to_str().unwrap(), cmdline
+        );
     }
     Ok(())
 }

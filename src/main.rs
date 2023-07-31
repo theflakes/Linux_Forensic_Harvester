@@ -88,23 +88,23 @@ const WATCH_FILE_TYPES: [&str; 25] = [
     "yaml",
     ];
 
-fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<Vec<String>> {
-    let mut tags: Vec<String> = Vec::new();
-    if found_base64(pdt, file, text, &"Base64")? { tags.push("Base64".to_string()) }
-    if found_email(pdt, file, text, &"Email")? { tags.push("Email".to_string()) }
-    if found_encoding(pdt, file, text, &"Encoding")? { tags.push("Encoding".to_string()) }
-    if found_hex(&text.as_bytes().to_vec(), &FIND_HEX)? {tags.push("Hex".to_string())}
-    if found_ipv4(pdt, file, text, &"IPv4")? { tags.push("IPv4".to_string()) }
-    if found_ipv6(pdt, file, text, &"IPv6")? { tags.push("IPv6".to_string()) }
-    if found_obfuscation(pdt, file, text, &"Obfuscation")? { tags.push("Obfuscation".to_string()) }
-    if found_regex(pdt, file, text, &"Regex")? { tags.push("Regex".to_string()) }
-    if found_righttoleft(pdt, file, file, &"RightLeft")? { tags.push("RightLeft".to_string()) }
-    if found_shell(pdt, file, text, &"Shell")? { tags.push("Shell".to_string()) }
-    if found_shellcode(pdt, file, text, &"ShellCode")? { tags.push("ShellCode".to_string()) }
-    if found_suspicious(pdt, file, text, &"Suspicious")? { tags.push("Suspicious".to_string()) }
-    if found_unc(pdt, file, text, &"Unc")? { tags.push("Unc".to_string()) }
-    if found_url(pdt, file, text, &"Url")? { tags.push("Url".to_string()) }
-    if found_webshell(pdt, file, text, &"WebShell")? { tags.push("WebShell".to_string()) }
+fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<HashSet<String>> {
+    let mut tags: HashSet<String> = HashSet::new();
+    if found_base64(pdt, file, text, &"Base64")? { tags.insert("Base64".to_string()); }
+    if found_email(pdt, file, text, &"Email")? { tags.insert("Email".to_string()); }
+    if found_encoding(pdt, file, text, &"Encoding")? { tags.insert("Encoding".to_string()); }
+    if found_hex(&text.as_bytes().to_vec(), &FIND_HEX)? {tags.insert("Hex".to_string()); }
+    if found_ipv4(pdt, file, text, &"IPv4")? { tags.insert("IPv4".to_string()); }
+    if found_ipv6(pdt, file, text, &"IPv6")? { tags.insert("IPv6".to_string()); }
+    if found_obfuscation(pdt, file, text, &"Obfuscation")? { tags.insert("Obfuscation".to_string()); }
+    if found_regex(pdt, file, text, &"Regex")? { tags.insert("Regex".to_string()); }
+    if found_righttoleft(pdt, file, file, &"RightLeft")? { tags.insert("RightLeft".to_string()); }
+    if found_shell(pdt, file, text, &"Shell")? { tags.insert("Shell".to_string()); }
+    if found_shellcode(pdt, file, text, &"ShellCode")? { tags.insert("ShellCode".to_string()); }
+    if found_suspicious(pdt, file, text, &"Suspicious")? { tags.insert("Suspicious".to_string()); }
+    if found_unc(pdt, file, text, &"Unc")? { tags.insert("Unc".to_string()); }
+    if found_url(pdt, file, text, &"Url")? { tags.insert("Url".to_string()); }
+    if found_webshell(pdt, file, text, &"WebShell")? { tags.insert("WebShell".to_string()); }
     Ok(tags)
 }
 
@@ -419,15 +419,16 @@ fn process_cron(pdt: &str, path: &str, files_already_seen: &mut HashSet<String>)
     check if a given file is one we want to inspect the contents of 
     for interesting strings and references to other files
 */
-fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u64, files_already_seen: &mut HashSet<String>) -> std::io::Result<(Vec<String>)> {
-    let mut tags: Vec<String> = Vec::new();
+fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u64, 
+              files_already_seen: &mut HashSet<String>) -> std::io::Result<(HashSet<String>)> {
+    let mut tags: HashSet<String> = HashSet::new();
     if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
             find_paths(&data, files_already_seen)?;
             let size_read = data.len() as u64;
-            get_rootkit_hidden_file_data(file_path, size)?;
-            if size_read < ARGS.flag_max { tags = run_hunts(pdt, path, &data)? };
+            tags.extend(get_rootkit_hidden_file_data(file_path, size)?);
+            if size_read < ARGS.flag_max { tags.extend(run_hunts(pdt, path, &data)?) };
         }
     }
     Ok(tags)
