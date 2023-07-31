@@ -192,7 +192,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                     TxNetConn::new("Process".to_string(), "NetConn".to_string(), get_now()?, 
                                     path.to_string(), pid, to_int32(fields[7])?, local_ip, 
                                     local_port, remote_ip, remote_port, get_tcp_state(fields[3])?, 
-                                    to_int128(&inode)?, HashSet::new()).report_log();
+                                    to_int128(&inode)?, Vec::new()).report_log();
                 }
                 matched = true;
             }
@@ -209,7 +209,7 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, files_already_se
     let data_type = "ProcessOpenFile".to_string();
     TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
-                        path_exists(fd), HashSet::new()).report_log();
+                        path_exists(fd), Vec::new()).report_log();
     let mut tags: HashSet<String> = HashSet::new();
     if pdt.eq("Rootkit") { tags.insert("Rootkit".to_string()); }
     process_file(&data_type, Path::new(path), files_already_seen, &mut tags)?;
@@ -266,7 +266,7 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
     TxProcess::new(pdt.to_string(), data_type.clone(), get_now()?, 
                     path.clone(), exists, comm, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
-                    cwd.to_string_lossy().into(), tags.clone()).report_log();
+                    cwd.to_string_lossy().into(), sort_tags(tags.clone())).report_log();
     // do not process file descriptors if we've already process them
     if procs_already_seen.get(root_path).is_none() || !procs_already_seen.get(root_path).unwrap().eq(&path) {
         procs_already_seen.insert(root_path.to_string(), path.clone());
@@ -291,7 +291,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
         TxLoadedModule::new(pdt.to_string(), 
                             "KernelModule".to_string(), get_now()?, 
                             name, size, loaded, dependencies, state, offset, 
-                            HashSet::new()).report_log();
+                            Vec::new()).report_log();
     }
     Ok(())
 }
@@ -308,7 +308,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
         TxMountPoint::new(pdt.to_string(), 
                             "MountPoint".to_string(), get_now()?, 
                             name, mount_point, file_system_type, mount_options, 
-                            HashSet::new()).report_log();
+                            Vec::new()).report_log();
     }
     Ok(())
 }
@@ -360,7 +360,7 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         let shell = values[6].to_string();
         TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
                         account_name, uid, gid, description, home_directory, 
-                        shell, HashSet::new()).report_log();
+                        shell, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -374,7 +374,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let gid: u32 = values[2].to_string().parse().unwrap();
         let members = values[3].to_string();
         TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
-                            group_name, gid, members, HashSet::new()).report_log();
+                            group_name, gid, members, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -395,7 +395,7 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
         let command_line = fields[6].to_string();
         TxCron::new(pdt.to_string(), "Cron".to_string(), get_now()?, 
                     path.to_string(), minute, hour, day_of_month, month, 
-                    day_of_week, account_name, command_line, HashSet::new()).report_log();
+                    day_of_week, account_name, command_line, Vec::new()).report_log();
     }
     Ok(())
 }
@@ -481,7 +481,7 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
         TxFile::new(parent_data_type, "File".to_string(), get_now()?, 
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
-            nlink, inode, perms, tags.to_owned()).report_log();
+            nlink, inode, perms, sort_tags(tags.to_owned())).report_log();
     }
     Ok(())
 }

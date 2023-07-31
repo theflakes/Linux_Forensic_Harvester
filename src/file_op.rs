@@ -171,7 +171,7 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String,
                     "ShellLink".to_string(), get_now()?, 
                     link_path, file_path, atime, 
                     wtime, ctime, size, hidden, 
-                    deleted, tags).report_log();
+                    deleted, sort_tags(tags)).report_log();
     Ok(())
 }
 

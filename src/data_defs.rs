@@ -146,6 +146,12 @@ pub fn sleep() {
     }
 }
 
+pub fn sort_tags(tags: HashSet<String>) -> Vec<String> {
+    let mut vec: Vec<String> = tags.into_iter().collect();
+    vec.sort();
+    return vec
+}
+
 /*
     Help provided by Yandros on using traits: 
         https://users.rust-lang.org/t/refactor-struct-fn-with-macro/40093
@@ -197,7 +203,7 @@ pub struct TxFile {
     pub nlink: u64, // number of hard links to file
     pub inode: u64,
     pub permissions: String,
-    pub tags: HashSet<String>,
+    pub tags: Vec<String>,
 }
 impl TxFile {
     pub fn new(
@@ -217,7 +223,7 @@ impl TxFile {
             nlink: u64,
             inode: u64,
             permissions: String,
-            tags: HashSet<String>,) -> TxFile {
+            tags: Vec<String>,) -> TxFile {
         TxFile {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -260,7 +266,7 @@ pub struct TxFileContent {
     pub path: String,
     pub line: String,
     pub bytes: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxFileContent {
     pub fn new(
@@ -270,7 +276,7 @@ impl TxFileContent {
             path: String,
             line: String,
             bytes: String,
-            tags: HashSet<String>,) -> TxFileContent {
+            tags: Vec<String>,) -> TxFileContent {
         TxFileContent {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -303,7 +309,7 @@ pub struct TxHiddenData {
     pub path: String,
     pub size: u64,
     pub size_read: u64,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxHiddenData {
     pub fn new(
@@ -313,7 +319,7 @@ impl TxHiddenData {
             path: String,
             size: u64,
             size_read: u64,
-            tags: HashSet<String>) -> TxHiddenData {
+            tags: Vec<String>) -> TxHiddenData {
         TxHiddenData {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -345,7 +351,7 @@ pub struct TxKernelTaint {
     is_tainted: bool,
     pub taint_value: u32,
     pub info: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxKernelTaint {
     pub fn new(
@@ -355,7 +361,7 @@ impl TxKernelTaint {
             is_tainted: bool,
             taint_value: u32,
             info: String,
-            tags: HashSet<String>) -> TxKernelTaint {
+            tags: Vec<String>) -> TxKernelTaint {
         TxKernelTaint {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -393,7 +399,7 @@ pub struct TxLink {
     pub size: u64,
     pub hidden: bool,
     pub target_exists: bool,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxLink {
     pub fn new(
@@ -408,7 +414,7 @@ impl TxLink {
             size: u64,
             hidden: bool,
             target_exists: bool,
-            tags: HashSet<String>) -> TxLink {
+            tags: Vec<String>) -> TxLink {
         TxLink {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -451,7 +457,7 @@ pub struct TxProcess {
     pub env: String,
     pub root_directory: String,
     pub current_working_directory: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxProcess {
     pub fn new(
@@ -467,7 +473,7 @@ impl TxProcess {
             env: String,
             root_directory: String,
             current_working_directory: String,
-            tags: HashSet<String>) -> TxProcess {
+            tags: Vec<String>) -> TxProcess {
         TxProcess {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -507,7 +513,7 @@ pub struct TxProcessFile {
     pub link: String,
     pub path: String,
     pub exists: bool,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxProcessFile {
     pub fn new(
@@ -518,7 +524,7 @@ impl TxProcessFile {
             link: String,
             path: String,
             exists: bool,
-            tags: HashSet<String>) -> TxProcessFile {
+            tags: Vec<String>) -> TxProcessFile {
         TxProcessFile {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -554,7 +560,7 @@ pub struct TxLocalUser {
     pub description: String,
     pub home_directory: String,
     pub shell: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxLocalUser {
     pub fn new(
@@ -567,7 +573,7 @@ impl TxLocalUser {
             description: String,
             home_directory: String,
             shell: String,
-            tags: HashSet<String>) -> TxLocalUser {
+            tags: Vec<String>) -> TxLocalUser {
         TxLocalUser {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -602,7 +608,7 @@ pub struct TxLocalGroup {
     pub name: String,
     pub gid: u32,
     pub members: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxLocalGroup {
     pub fn new(
@@ -612,7 +618,7 @@ impl TxLocalGroup {
             name: String, 
             gid: u32,
             members: String,
-            tags: HashSet<String>) -> TxLocalGroup {
+            tags: Vec<String>) -> TxLocalGroup {
         TxLocalGroup {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -647,7 +653,7 @@ pub struct TxLoadedModule {
     pub dependencies: String,       // other modules this module is dependant on
     pub state: String,              // state is: Live, Loading, or Unloading
     pub memory_offset: String,      // location in kernel memory of module
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxLoadedModule {
     pub fn new(
@@ -660,7 +666,7 @@ impl TxLoadedModule {
             dependencies: String,
             state: String,
             memory_offset: String,
-            tags: HashSet<String>) -> TxLoadedModule {
+            tags: Vec<String>) -> TxLoadedModule {
         TxLoadedModule {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -696,7 +702,7 @@ pub struct TxMountPoint {
     pub mount_point: String,
     pub file_system_type: String,
     pub mount_options: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxMountPoint {
     pub fn new(
@@ -707,7 +713,7 @@ impl TxMountPoint {
             mount_point: String,
             file_system_type: String,
             mount_options: String,
-            tags: HashSet<String>) -> TxMountPoint {
+            tags: Vec<String>) -> TxMountPoint {
         TxMountPoint {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -746,7 +752,7 @@ pub struct TxNetConn {
     pub r_port: u16,    // remote port
     pub status: String,
     pub inode: i128,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxNetConn {
     pub fn new(
@@ -762,7 +768,7 @@ impl TxNetConn {
             r_port: u16,
             status: String,
             inode: i128,
-            tags: HashSet<String>) -> TxNetConn {
+            tags: Vec<String>) -> TxNetConn {
         TxNetConn {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -805,7 +811,7 @@ pub struct TxCron {
     pub day_of_week: String, 
     pub name: String, 
     pub command_line: String,
-    pub tags: HashSet<String>
+    pub tags: Vec<String>
 }
 impl TxCron {
     pub fn new(
@@ -820,7 +826,7 @@ impl TxCron {
             day_of_week: String,
             name: String, 
             command_line: String,
-            tags: HashSet<String>) -> TxCron {
+            tags: Vec<String>) -> TxCron {
         TxCron {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
