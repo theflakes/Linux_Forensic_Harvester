@@ -211,7 +211,8 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
         process_process(&"Rootkit", &base_path.to_string_lossy(), &exe_path, 
                         files_already_seen, tags, procs_already_seen)?;
         let pid = base_path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-        get_process_maps("ProcMimic", &base_path, pid, files_already_seen, procs_already_seen, tags)?;
+        get_process_maps("ProcMimic", &base_path, pid, files_already_seen, 
+                        procs_already_seen, tags)?;
     }
     Ok(())
 }
@@ -241,7 +242,8 @@ fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>,
             process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                             files_already_seen, tags, procs_already_seen)?;
             let pid = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-            get_process_maps("ProcHiddenParent", &path, pid, files_already_seen, procs_already_seen, tags)?;
+            get_process_maps("ProcHiddenParent", &path, pid, files_already_seen, 
+                            procs_already_seen, tags)?;
         }
     }
     Ok(())
@@ -282,7 +284,8 @@ fn find_hidden_procs(files_already_seen: &mut HashSet<String>,
         let exe = fs::read_link(&exe_path).ok();
         process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, 
                         files_already_seen, &mut tags, procs_already_seen)?;
-        get_process_maps("ProcHidden", &proc_dir.to_path_buf(), &pid.to_string(), files_already_seen, procs_already_seen, tags)?;
+        get_process_maps("ProcHidden", &proc_dir.to_path_buf(), &pid.to_string(), 
+                        files_already_seen, procs_already_seen, tags)?;
     }
 
     Ok(())
@@ -331,7 +334,8 @@ fn find_thread_mimics(files_already_seen: &mut HashSet<String>,
                     let exe = path.join("exe");
                     process_process(&"Rootkit", &path.to_string_lossy(), &exe, 
                                     files_already_seen, tags, procs_already_seen)?;
-                    get_process_maps("ThreadMimic", &path, pid, files_already_seen, procs_already_seen, tags)?;
+                    get_process_maps("ThreadMimic", &path, pid, files_already_seen, 
+                                    procs_already_seen, tags)?;
                 }
             }
         }
