@@ -60,18 +60,18 @@ Usage:
     lin_fh (-h | --help)
 
 Options:
-    -d, --depth <depth>   Max directory depth to traverse [default: 5]
-    -f, --forensics       Gather general forensic info
-    -h, --help            Print help
-    -l, --limit           Limit CPU use
-    -k, --rootkit         Run rootkit hunts
-    -m, --max <bytes>     Max size of a text file in bytes to inspect the content
+    -d, --depth <depth>     Max directory depth to traverse [default: 5]
+    -f, --forensics         Gather general forensic info
+    -h, --help              Print help
+    -l, --limit             Limit CPU use
+    -k, --rootkit           Run rootkit hunts
+    -m, --max <bytes>       Max size of a text file in bytes to inspect the content
                             of for interesting strings [default: 100000]
                             - Text files will always be searched for references
-                            to other files.
+                              to other files.
   Remote logging:
-    -i, --ip <ip>         IP address to send output to [default: NONE]
-    -p, --port <port>     Destination port to send output to [default: 80]
+    -i, --ip <ip>           IP address to send output to [default: NONE]
+    -p, --port <port>       Destination port to send output to [default: 80]
   Time window:
     This option will compare the specified date window to the file's 
     ctime, atime, or mtime and only output logs where the one of the dates falls 
@@ -81,16 +81,16 @@ Options:
     --end <UTC_end_time>        End of time window: [default: 9999-12-31T23:59:59]
                                 - format: YYYY-MM-DDTHH:MM:SS
   Custom hunts:
-    -r, --regex <regex>   Custom regex [default: $^]
+    -r, --regex <regex>     Custom regex [default: $^]
                             - Search file content using custom regex
                             - Does not support look aheads/behinds/...
                             - Uses Rust regex crate (case insensitive and multiline)
                             - Tag: RegexHunt
-    -s, --suidsgid        Search for suid and sgid files
+    -s, --suidsgid          Search for suid and sgid files
                             - This will search the entire '/' including subdirectories
                             - Can take a long time
                             - /dev/, /mnt/, /proc/, /sys/ directories are ignored
-    -x, --hex <hex>       Hex search string [default: FF]
+    -x, --hex <hex>         Hex search string [default: FF]
                             - Hex string length must be a multiple of two
                             - format: 0a1b2c3d4e5f
                             - Tag: HexHunt
