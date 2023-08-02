@@ -13,48 +13,70 @@ Linux Forensic Harvester
         This tool comes with no warranty or support. 
         If anyone chooses to use it, you accept all responsibility and liability.
 
-If not run as root, not all telemetry can be harvested.
+Must be run as root.
 
 Usage:
-  lin_fh [--ip <ip> --port <port>]
+Linux Forensic Harvester
+    Author: Brian Kellogg
+    License: MIT
+    Disclaimer: 
+        This tool comes with no warranty or support. 
+        If anyone chooses to use it, you accept all responsibility and liability.
+
+Must be run as root.
+
+Usage:
+  lin_fh [options]
+  lin_fh -fksl
+  lin_fh [--ip <ip> --port <port>] [--depth <depth>]
   lin_fh [--ip <ip> --port <port>] [--limit]
-  lin_fh [--ip <ip> --port <port>] [--suidsgid] [--limit]
-  lin_fh --suidsgid [--limit]
-  lin_fh --max <bytes> [--limit]
-  lin_fh --limit
-  lin_fh --help
+  lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
+  lin_fh (-s, --suidsgid) [--limit]
+  lin_fh (-r <regex> | --regex <regex>) [-ls] [-d <depth>]
+  lin_fh --max <bytes> [--limit] [-d <depth>]
+  lin_fh (-l | --limit)
+  lin_fh --start <start_time> [-d <depth>]
+  lin_fh --end <start_time> [-d <depth>] [-ls]
+  lin_fh --start <start_time> --end <end_time>
+  lin_fh -s [-d <depth>]
+  lin_fh [-sl] (-x <hex> | --hex <hex>)
+  lin_fh (-h | --help)
 
 Options:
+  -d, --depth <depth>   Max directory depth to traverse [default: 5]
+  -f, --forensics       Gather general forensic info
   -h, --help            Print help
-  -i, --ip <ip>         IP address to send output to [default: NONE]
-  -p, --port <port>     Destination port to send output to [default: 80]
   -l, --limit           Limit CPU use
+  -k, --rootkit         Run rootkit hunts
   -m, --max <bytes>     Max size of a text file in bytes to inspect the content
                         of for interesting strings [default: 100000]
                         - Text files will always be searched for references
                           to other files.
+  Remote logging:
+  -i, --ip <ip>         IP address to send output to [default: NONE]
+  -p, --port <port>     Destination port to send output to [default: 80]
+  Time window:
+    This option will compare the specified date window to the file's 
+    ctime, atime, or mtime and only output logs where the one of the dates falls 
+    within that window. Window start is inclusive, window end is exclusive.
+  --start <UTC_start_time>        Start of time window: [default: 0000-01-01T00:00:00]
+                                format: YYYY-MM-DDTHH:MM:SS
+  --end <UTC_end_time>            End of time window: [default: 9999-12-31T23:59:59]
+                                format: YYYY-MM-DDTHH:MM:SS
+  Custom hunts:
+  -r, --regex <regex>   Custom regex [default: $^]
+                        - Search file content using custom regex
+                        - Does not support look aheads/behinds/...
+                        - Uses Rust regex crate (case insensitive and multiline)
+                        - Tag: RegexHunt
   -s, --suidsgid        Search for suid and sgid files
                         - This will search the entire '/' including subdirectories
-                        - Can take a very long time
+                        - Can take a long time
                         - /dev/, /mnt/, /proc/, /sys/ directories are ignored
-
-Note:
-  If not run as root some telemetry cannot be harvested.
-
-  A log with data_type of 'Rootkit' will be generated if the size of file read into
-  memory is less that the size on disk. This is a simple possible root kit identification
-  method.
-  - See: https://github.com/sandflysecurity/sandfly-file-decloak
-
-  More rootkit detection techniques:
-  - https://unfinished.bike/diy-linux-kernel-rootkit-detection
-  
-  To capture network output, start a netcat listener on your port of choice.
-  Use the -k option with netcat to prevent netcat from closing after a TCP connection is closed.
-
-  Files larger than 256MB will not be hashed.
-
-  Text files larger than '--max' will not be inspected for interesting strings.
+  -x, --hex <hex>       Hex search string [default: FF]
+                        - Hex string length must be a multiple of two
+                        - format: 0a1b2c3d4e5f
+                        - Tag: HexHunt
 ```
 
 ## To compile
