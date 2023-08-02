@@ -43,57 +43,57 @@ Linux Forensic Harvester
 Must be run as root.
 
 Usage:
-  lin_fh [options]
-  lin_fh -fksl
-  lin_fh [--ip <ip> --port <port>] [--depth <depth>]
-  lin_fh [--ip <ip> --port <port>] [--limit]
-  lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
-  lin_fh (-s, --suidsgid) [--limit]
-  lin_fh (-r <regex> | --regex <regex>) [-ls] [-d <depth>]
-  lin_fh --max <bytes> [--limit] [-d <depth>]
-  lin_fh (-l | --limit)
-  lin_fh --start <start_time> [-d <depth>]
-  lin_fh --end <start_time> [-d <depth>] [-ls]
-  lin_fh --start <start_time> --end <end_time>
-  lin_fh -s [-d <depth>]
-  lin_fh [-sl] (-x <hex> | --hex <hex>)
-  lin_fh (-h | --help)
+    lin_fh [options]
+    lin_fh -fksl
+    lin_fh [--ip <ip> --port <port>] [--depth <depth>]
+    lin_fh [--ip <ip> --port <port>] [--limit]
+    lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
+    lin_fh (-s, --suidsgid) [--limit]
+    lin_fh (-r <regex> | --regex <regex>) [-ls] [-d <depth>]
+    lin_fh --max <bytes> [--limit] [-d <depth>]
+    lin_fh (-l | --limit)
+    lin_fh --start <start_time> [-d <depth>]
+    lin_fh --end <start_time> [-d <depth>] [-ls]
+    lin_fh --start <start_time> --end <end_time>
+    lin_fh -s [-d <depth>]
+    lin_fh [-sl] (-x <hex> | --hex <hex>)
+    lin_fh (-h | --help)
 
 Options:
-  -d, --depth <depth>   Max directory depth to traverse [default: 5]
-  -f, --forensics       Gather general forensic info
-  -h, --help            Print help
-  -l, --limit           Limit CPU use
-  -k, --rootkit         Run rootkit hunts
-  -m, --max <bytes>     Max size of a text file in bytes to inspect the content
-                        of for interesting strings [default: 100000]
-                        - Text files will always be searched for references
-                          to other files.
+    -d, --depth <depth>   Max directory depth to traverse [default: 5]
+    -f, --forensics       Gather general forensic info
+    -h, --help            Print help
+    -l, --limit           Limit CPU use
+    -k, --rootkit         Run rootkit hunts
+    -m, --max <bytes>     Max size of a text file in bytes to inspect the content
+                            of for interesting strings [default: 100000]
+                            - Text files will always be searched for references
+                            to other files.
   Remote logging:
-  -i, --ip <ip>         IP address to send output to [default: NONE]
-  -p, --port <port>     Destination port to send output to [default: 80]
+    -i, --ip <ip>         IP address to send output to [default: NONE]
+    -p, --port <port>     Destination port to send output to [default: 80]
   Time window:
     This option will compare the specified date window to the file's 
     ctime, atime, or mtime and only output logs where the one of the dates falls 
     within that window. Window start is inclusive, window end is exclusive.
-  --start <UTC_start_time>        Start of time window: [default: 0000-01-01T00:00:00]
-                                format: YYYY-MM-DDTHH:MM:SS
-  --end <UTC_end_time>            End of time window: [default: 9999-12-31T23:59:59]
-                                format: YYYY-MM-DDTHH:MM:SS
+    --start <UTC_start_time>    Start of time window: [default: 0000-01-01T00:00:00]
+                                - format: YYYY-MM-DDTHH:MM:SS
+    --end <UTC_end_time>        End of time window: [default: 9999-12-31T23:59:59]
+                                - format: YYYY-MM-DDTHH:MM:SS
   Custom hunts:
-  -r, --regex <regex>   Custom regex [default: $^]
-                        - Search file content using custom regex
-                        - Does not support look aheads/behinds/...
-                        - Uses Rust regex crate (case insensitive and multiline)
-                        - Tag: RegexHunt
-  -s, --suidsgid        Search for suid and sgid files
-                        - This will search the entire '/' including subdirectories
-                        - Can take a long time
-                        - /dev/, /mnt/, /proc/, /sys/ directories are ignored
-  -x, --hex <hex>       Hex search string [default: FF]
-                        - Hex string length must be a multiple of two
-                        - format: 0a1b2c3d4e5f
-                        - Tag: HexHunt
+    -r, --regex <regex>   Custom regex [default: $^]
+                            - Search file content using custom regex
+                            - Does not support look aheads/behinds/...
+                            - Uses Rust regex crate (case insensitive and multiline)
+                            - Tag: RegexHunt
+    -s, --suidsgid        Search for suid and sgid files
+                            - This will search the entire '/' including subdirectories
+                            - Can take a long time
+                            - /dev/, /mnt/, /proc/, /sys/ directories are ignored
+    -x, --hex <hex>       Hex search string [default: FF]
+                            - Hex string length must be a multiple of two
+                            - format: 0a1b2c3d4e5f
+                            - Tag: HexHunt
 
 Note:
   If not run as root some telemetry cannot be harvested.
