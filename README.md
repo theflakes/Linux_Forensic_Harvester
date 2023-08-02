@@ -82,7 +82,6 @@ Note:
   Files larger than 256MB will not be hashed.
 
   Files larger than '--max' will not be inspected for interesting strings.
-";
 ```
 
 ## To compile
