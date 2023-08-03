@@ -17,9 +17,9 @@ use std::{
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
-    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral}, 
+    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts}, 
     time::get_now, 
-    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}, 
+    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts}, 
         mutate::{to_u128, to_int32, push_file_path}};
 
 
@@ -350,23 +350,13 @@ fn find_thread_mimics(files_already_seen: &mut HashSet<String>,
 fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
                             procs_already_seen: &mut HashMap<String, String>, 
                             tags: &mut HashSet<String>) -> io::Result<()> {
-    let metadata = fs::metadata("/sys/module")?;
-    let hard_links = metadata.nlink();
-
-    let visible_entries = fs::read_dir("/sys/module")?
-        .filter(|entry| entry.is_ok())
-        .count() as u64;
-
-    let hidden_count = hard_links - visible_entries - 2;
-
+    let (hard_links, visible_entries, hidden_count) = get_directory_content_counts(Path::new("/sys/module"))?;
     if hidden_count > 0 {
-        let msg = format!("Hard Links: {}; Visible Entries: {}; Hidden Count: {}", 
-                                hard_links, visible_entries, hidden_count);
         let pdt = "Rootkit".to_string();
-        TxGeneral::new(pdt.to_string(), 
-                "ModuleHidden".to_owned(), get_now()?, msg,
-                sort_hashset(tags.clone())).report_log();
-        process_file(&pdt, Path::new("/sys"), files_already_seen, tags);
+        TxDirContentCounts::new(pdt.to_string(), 
+                "ModuleHidden".to_owned(), get_now()?, hard_links,
+                visible_entries, hidden_count, sort_hashset(tags.clone())).report_log();
+        process_file(&pdt, Path::new("/sys/module"), files_already_seen, tags);
     }
     Ok(())
 }

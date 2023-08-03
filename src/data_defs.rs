@@ -906,7 +906,6 @@ impl TxCron {
     }
 }
 
-// used when a file is possibly holding hidden data (rootkit)
 #[derive(Serialize)]
 pub struct TxGeneral {
     device_name: String,
@@ -931,6 +930,46 @@ impl TxGeneral {
             data_type,
             timestamp,
             info,
+            tags
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
+#[derive(Serialize)]
+pub struct TxDirContentCounts {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    pub data_type: String,
+    pub timestamp: String,
+    pub hard_link_count: u64,
+    pub visible_count: u64,
+    pub hidden_count: u64,
+    pub tags: Vec<String>
+}
+impl TxDirContentCounts {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            hard_link_count: u64,
+            visible_count: u64,
+            hidden_count: u64,
+            tags: Vec<String>) -> TxDirContentCounts {
+        TxDirContentCounts {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            hard_link_count,
+            visible_count,
+            hidden_count,
             tags
         }
     }

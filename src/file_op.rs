@@ -10,7 +10,7 @@ use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{Read, BufRead, BufReader};
 use std::io;
-use std::os::unix::prelude::PermissionsExt;
+use std::os::unix::prelude::{PermissionsExt, MetadataExt};
 use std::path::Path;
 use path_abs::{PathAbs, PathInfo};
 use libc::{S_IRGRP, S_IROTH, S_IRUSR, // see: https://www.gnu.org/software/libc/manual/html_node/Permission-Bits.html
@@ -266,4 +266,14 @@ pub fn find_files_with_permissions(start: &Path, permissions: u32,
         }
     }
     Ok(())
+}
+
+pub fn get_directory_content_counts(dir: &Path) -> io::Result<(u64, u64, u64)> {
+    let metadata = fs::metadata(dir)?;
+    let hard_links = metadata.nlink();
+    let visible_entries = fs::read_dir(dir)?
+        .filter(|entry| entry.is_ok())
+        .count() as u64;
+    let hidden_count = hard_links - visible_entries - 2;
+    Ok ((hard_links, visible_entries, hidden_count))
 }
