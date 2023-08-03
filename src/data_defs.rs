@@ -905,3 +905,38 @@ impl TxCron {
         self.write_log()
     }
 }
+
+// used when a file is possibly holding hidden data (rootkit)
+#[derive(Serialize)]
+pub struct TxGeneral {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    pub data_type: String,
+    pub timestamp: String,
+    pub info: String,
+    pub tags: Vec<String>
+}
+impl TxGeneral {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            info: String,
+            tags: Vec<String>) -> TxGeneral {
+        TxGeneral {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            info,
+            tags
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}

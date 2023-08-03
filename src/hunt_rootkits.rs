@@ -17,9 +17,10 @@ use std::{
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
-    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps}, 
+    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral}, 
     time::get_now, 
-    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}, mutate::{to_u128, to_int32, push_file_path}};
+    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions}, 
+        mutate::{to_u128, to_int32, push_file_path}};
 
 
 pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>, 
@@ -48,6 +49,9 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["ThreadMimic".to_string()].to_vec());
     find_thread_mimics(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["ModulesHidden".to_string()].to_vec());
+    find_hidden_sys_modules(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -339,6 +343,30 @@ fn find_thread_mimics(files_already_seen: &mut HashSet<String>,
                 }
             }
         }
+    }
+    Ok(())
+}
+
+fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
+                            procs_already_seen: &mut HashMap<String, String>, 
+                            tags: &mut HashSet<String>) -> io::Result<()> {
+    let metadata = fs::metadata("/sys/module")?;
+    let hard_links = metadata.nlink();
+
+    let visible_entries = fs::read_dir("/sys/module")?
+        .filter(|entry| entry.is_ok())
+        .count() as u64;
+
+    let hidden_count = hard_links - visible_entries - 2;
+
+    if hidden_count > 0 {
+        let msg = format!("Hard Links: {}; Visible Entries: {}; Hidden Count: {}", 
+                                hard_links, visible_entries, hidden_count);
+        let pdt = "Rootkit".to_string();
+        TxGeneral::new(pdt.to_string(), 
+                "ModuleHidden".to_owned(), get_now()?, msg,
+                sort_hashset(tags.clone())).report_log();
+        process_file(&pdt, Path::new("/sys"), files_already_seen, tags);
     }
     Ok(())
 }

@@ -43,13 +43,14 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 14] = [
+const WATCH_PATHS: [&str; 15] = [
     "/etc",
     "/home",
     "/lib/modules",
     "/proc",
     "/root",
     "/srv",
+    "/sys",
     "/tmp",
     "/usr/lib/systemd/system",
     "/usr/local/var/www/html",
