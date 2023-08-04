@@ -542,6 +542,19 @@ fn find_suid_sgid(files_already_seen: &mut HashSet<String>) -> std::io::Result<(
     Ok(())
 }
 
+fn find_hidden_directory_contents(dir: &str) -> std::io::Result<()> {
+    let (hard_links, visible_entries, hidden_count) = get_directory_content_counts(Path::new(dir))?;
+    if hard_links <= visible_entries + 2 { return Ok(()) }
+    let pdt = "Rootkit".to_string();
+    let mut tags: HashSet<String> = HashSet::new();
+    tags.insert("HiddenDirContents".to_string());
+    TxDirContentCounts::new(pdt.to_string(), 
+            "HiddenDirContents".to_owned(), get_now()?, dir.to_string(), 
+            hard_links, visible_entries, hidden_count, 
+            sort_hashset(tags.clone())).report_log();
+    Ok(())
+}
+
 fn is_root() {
     if Uid::effective().is_root() {
         return;
@@ -566,6 +579,7 @@ fn main() -> std::io::Result<()> {
     if ARGS.flag_forensics {
         for path in WATCH_PATHS.iter() {
             if !path_exists(path) { continue }
+            find_hidden_directory_contents(path)?;
             match process_directory_files("", path, &mut files_already_seen, &mut procs_already_seen) {
                 Ok(f) => f,
                 Err(_e) => continue};

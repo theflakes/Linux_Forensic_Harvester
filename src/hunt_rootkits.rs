@@ -354,8 +354,9 @@ fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
     if hidden_count > 0 {
         let pdt = "Rootkit".to_string();
         TxDirContentCounts::new(pdt.to_string(), 
-                "ModuleHidden".to_owned(), get_now()?, hard_links,
-                visible_entries, hidden_count, sort_hashset(tags.clone())).report_log();
+                "ModuleHidden".to_owned(), get_now()?, "/sys/module".to_string(), 
+                hard_links,visible_entries, hidden_count, 
+                sort_hashset(tags.clone())).report_log();
         process_file(&pdt, Path::new("/sys/module"), files_already_seen, tags);
     }
     Ok(())
