@@ -544,6 +544,8 @@ fn find_suid_sgid(files_already_seen: &mut HashSet<String>) -> std::io::Result<(
 
 /*
     Compare items reported by directory metadata with what we see in the directory
+
+    This is the poor man's method. Better method is to verify inode entries
 */
 fn find_hidden_directory_contents(dir: &str) -> std::io::Result<()> {
     let (hard_links, visible_entries, hidden_count) = get_directory_content_counts(Path::new(dir))?;
