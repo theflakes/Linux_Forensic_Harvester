@@ -581,6 +581,15 @@ fn main() -> std::io::Result<()> {
     let mut files_already_seen: HashSet<String> = HashSet::new();
     let mut procs_already_seen: HashMap<String, String> = HashMap::new();
 
+    if ARGS.flag_rootkit {
+        rootkit_hunt(&mut files_already_seen, &mut procs_already_seen)?;
+    }
+    
+
+    if ARGS.flag_suidsgid {
+        find_suid_sgid(&mut files_already_seen)?; 
+    }
+
     if ARGS.flag_forensics {
         for path in WATCH_PATHS.iter() {
             if !path_exists(path) { continue }
@@ -589,15 +598,6 @@ fn main() -> std::io::Result<()> {
                 Ok(f) => f,
                 Err(_e) => continue};
         }
-    }
-
-    if ARGS.flag_rootkit {
-        rootkit_hunt(&mut files_already_seen, &mut procs_already_seen)?;
-    }
-    
-
-    if ARGS.flag_suidsgid {
-        find_suid_sgid(&mut files_already_seen)?; 
     }
 
     Ok(())

@@ -55,6 +55,9 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["PacketSniffer".to_string()].to_vec());
     find_raw_packet_sniffer(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["ProcLockSus".to_string()].to_vec());
+    find_odd_run_locks(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -375,6 +378,7 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
         .map(|line| line.split_whitespace().nth(8).unwrap_or_default().to_string())
         .collect();
 
+    let pdt = "Rootkit".to_string();
     for inode in inodes {
         let mut proc = Vec::new();
         for entry in fs::read_dir("/proc")? {
@@ -395,8 +399,6 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
         let pid = proc[0].file_name().unwrap_or_default().to_string_lossy();
         let path = Path::new(&format!("/proc/{}", pid)).to_owned();
         let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
-        let name = fs::read_to_string(format!("/proc/{}/comm", pid))?;
-        let pdt = "Rootkit".to_string();
         process_process(&pdt, &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
         get_process_maps("PacketSniffer", &path, &pid, files_already_seen, 
@@ -407,6 +409,47 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
                         "PacketSniffer".to_string(), 
                         get_now()?, line.to_string(), 
                         sort_hashset(tags.clone())).report_log();
+            }
+        }
+    }
+    Ok(())
+}
+
+fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
+                    procs_already_seen: &mut HashMap<String, String>, 
+                    tags: &mut HashSet<String>) -> io::Result<()> {
+    let mut pids = Vec::new();
+    for entry in fs::read_dir("/proc")? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() { continue; }
+        let path = entry.path().join("fd");
+        if !path.exists() { continue; }
+        for fd_entry in fs::read_dir(path)? {
+            let fd_entry = fd_entry?;
+            let link = fd_entry.path().read_link()?;
+            let l = link.to_string_lossy();
+            if l.starts_with("/run/") && l.ends_with(".lock") {
+                pids.push(entry.file_name().into_string().unwrap_or_default());
+                break;
+            }
+        }
+    }
+    
+    let dt = "ProcLockSus".to_string();
+    for pid in pids {
+        let path = Path::new(&format!("/proc/{}", pid)).to_owned();
+        let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
+        process_process(&dt, &path.to_string_lossy(), &exe, 
+                        files_already_seen, tags, procs_already_seen)?;
+        get_process_maps(&dt, &path, &pid, files_already_seen, 
+                        procs_already_seen, tags)?;
+        let fd = format!("/proc/{}/fd", pid);
+        for entry in fs::read_dir(fd)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() { continue; }
+            let link = entry.path().read_link()?;
+            if link.to_string_lossy().contains("lock") {
+                process_file(&dt, &entry.path(), files_already_seen, tags);
             }
         }
     }
