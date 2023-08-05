@@ -52,6 +52,9 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["ModulesHidden".to_string()].to_vec());
     find_hidden_sys_modules(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["PacketSniffer".to_string()].to_vec());
+    find_raw_packet_sniffer(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -358,6 +361,54 @@ fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
                 hard_links,visible_entries, hidden_count, 
                 sort_hashset(tags.clone())).report_log();
         process_file(&pdt, Path::new("/sys/module"), files_already_seen, tags);
+    }
+    Ok(())
+}
+
+fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
+                            procs_already_seen: &mut HashMap<String, String>, 
+                            tags: &mut HashSet<String>) -> io::Result<()> {
+    let packet = fs::read_to_string("/proc/net/packet")?;
+    let inodes: Vec<String> = packet
+        .lines()
+        .filter(|line| !line.starts_with("sk") && !line.contains(" 888e "))
+        .map(|line| line.split_whitespace().nth(8).unwrap_or_default().to_string())
+        .collect();
+
+    for inode in inodes {
+        let mut proc = Vec::new();
+        for entry in fs::read_dir("/proc")? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() { continue; }
+            let path = entry.path().join("fd");
+            if !path.exists() { continue; }
+            for fd_entry in fs::read_dir(path)? {
+                let fd_entry = fd_entry?;
+                let link = fd_entry.path().read_link()?;
+                if link.to_string_lossy().contains(&format!("socket:[{}]", inode)) {
+                    proc.push(entry.path());
+                    break;
+                }
+            }
+        }
+        if proc.is_empty() { continue; }
+        let pid = proc[0].file_name().unwrap_or_default().to_string_lossy();
+        let path = Path::new(&format!("/proc/{}", pid)).to_owned();
+        let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
+        let name = fs::read_to_string(format!("/proc/{}/comm", pid))?;
+        let pdt = "Rootkit".to_string();
+        process_process(&pdt, &path.to_string_lossy(), &exe, 
+                        files_already_seen, tags, procs_already_seen)?;
+        get_process_maps("PacketSniffer", &path, &pid, files_already_seen, 
+                        procs_already_seen, tags)?;
+        for line in packet.lines() {
+            if line.starts_with("sk") || line.contains(&format!(" {}", inode)) {
+                TxGeneral::new(pdt.clone(), 
+                        "PacketSniffer".to_string(), 
+                        get_now()?, line.to_string(), 
+                        sort_hashset(tags.clone())).report_log();
+            }
+        }
     }
     Ok(())
 }
