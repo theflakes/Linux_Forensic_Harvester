@@ -60,7 +60,7 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     find_odd_run_locks(files_already_seen, procs_already_seen, &mut tags)?;
     tags = reset_tags("Rootkit", 
                     ["ProcTakeOver".to_string()].to_vec());
-    find_proc_take_over(files_already_seen, procs_already_seen, &mut tags)?;
+    find_proc_takeover(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -462,7 +462,7 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
 /*
     Need to research and test this method more, not understanding it completely
 */
-fn find_proc_take_over(files_already_seen: &mut HashSet<String>,
+fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
                         procs_already_seen: &mut HashMap<String, String>, 
                         tags: &mut HashSet<String>) -> io::Result<()> {
     for entry in fs::read_dir("/proc")? {
