@@ -19,7 +19,7 @@ use crate::{process_process,
     process_file, 
     data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts, TxCharDevice}, 
     time::{get_now, get_epoch_start}, 
-    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts}, 
+    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts, parse_permissions}, 
         mutate::{to_u128, to_int32, push_file_path, format_date}};
 
 
@@ -626,7 +626,7 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
                 if expected_high.contains_key(pattern.as_str()) { continue; }
             }
             let md = fs::metadata(&path)?;
-            let permissions = md.mode();
+            let permissions = parse_permissions(md.mode());
             let uid = md.uid();
             let gid = md.gid();
             let inode = md.ino();
