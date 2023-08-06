@@ -182,6 +182,104 @@ trait Loggable : Serialize {
 }
 impl<T : ?Sized + Serialize> Loggable for T {}
 
+#[derive(Serialize)]
+pub struct TxGeneral {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    pub data_type: String,
+    pub timestamp: String,
+    pub info: String,
+    pub tags: Vec<String>
+}
+impl TxGeneral {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            info: String,
+            tags: Vec<String>) -> TxGeneral {
+        TxGeneral {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            info,
+            tags
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
+#[derive(Serialize)]
+pub struct TxCharDevice {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    pub data_type: String,
+    pub timestamp: String,
+    pub path: String,
+    pub class: String,
+    pub pattern: String,
+    pub major: u64,
+    pub permissions: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub inode: u64,
+    pub last_access_time: String, 
+    pub last_write_time: String,
+    pub creation_time: String,
+    pub tags: Vec<String>
+}
+impl TxCharDevice {
+    pub fn new(
+            parent_data_type: String,
+            data_type: String,
+            timestamp: String,
+            path: String,
+            class: String,
+            pattern: String,
+            major: u64,
+            permissions: u32,
+            uid: u32,
+            gid: u32,
+            inode: u64,
+            last_access_time: String, 
+            last_write_time: String,
+            creation_time: String,
+            tags: Vec<String>) -> TxCharDevice {
+        TxCharDevice {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            path,
+            class,
+            pattern,
+            major,
+            permissions,
+            uid,
+            gid,
+            inode,
+            last_access_time, 
+            last_write_time,
+            creation_time,
+            tags
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
 // holds file metadata info
 #[derive(Serialize)]
 pub struct TxFile {
@@ -896,40 +994,6 @@ impl TxCron {
             day_of_week,
             name,
             command_line,
-            tags
-        }
-    }
-
-    // convert struct to json and report it out
-    pub fn report_log(&self) {
-        self.write_log()
-    }
-}
-
-#[derive(Serialize)]
-pub struct TxGeneral {
-    device_name: String,
-    src_ip: String,
-    pub parent_data_type: String,
-    pub data_type: String,
-    pub timestamp: String,
-    pub info: String,
-    pub tags: Vec<String>
-}
-impl TxGeneral {
-    pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            info: String,
-            tags: Vec<String>) -> TxGeneral {
-        TxGeneral {
-            device_name: DEVICE_NAME.to_string(),
-            src_ip: DEVICE_IP.to_string(),
-            parent_data_type,
-            data_type,
-            timestamp,
-            info,
             tags
         }
     }

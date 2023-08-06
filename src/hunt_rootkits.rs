@@ -11,16 +11,16 @@
 use std::{
     collections::{HashSet, HashMap}, 
     time::{SystemTime, UNIX_EPOCH}, 
-    path::{Path, PathBuf}, os::unix::prelude::{MetadataExt, PermissionsExt}, 
+    path::{Path, PathBuf}, os::unix::prelude::{MetadataExt, PermissionsExt, FileTypeExt}, 
     fs, 
     io::{BufReader, BufRead, self}};
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
-    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts}, 
-    time::get_now, 
+    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts, TxCharDevice}, 
+    time::{get_now, get_epoch_start}, 
     file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts}, 
-        mutate::{to_u128, to_int32, push_file_path}};
+        mutate::{to_u128, to_int32, push_file_path, format_date}};
 
 
 pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>, 
@@ -74,6 +74,10 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["ProcRootSocketNoDeps".to_string()].to_vec());
     find_proc_root_socket_no_deps(files_already_seen, procs_already_seen, &mut tags)?;
+
+    tags = reset_tags("Rootkit", 
+                    ["CharDeviceMimic".to_string()].to_vec());
+    find_char_device_mimic(&mut tags)?;
     Ok(())
 }
 
@@ -536,6 +540,108 @@ fn find_proc_root_socket_no_deps(files_already_seen: &mut HashSet<String>,
         if false_positive.contains_key(exe_path.to_str().unwrap_or_default()) { continue; }
         process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                         files_already_seen, tags, procs_already_seen)?;
+    }
+    Ok(())
+}
+
+fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
+    let expected_major: HashMap<u64, &str> = [
+        (1, "memory"),
+        (2, "pty master"),
+        (3, "pty slave"),
+        (4, "tty"),
+        (5, "alt tty"),
+        (6, "parallel"),
+        (7, "vcs"),
+        (8, "scsi tape"),
+        (9, "md"),
+        (10, "misc"),
+        (13, "input"),
+        (21, "scsi"),
+        (29, "fb"),
+        (81, "v4l"),
+        (89, "i2c"),
+        (90, "memorydev"),
+        (108, "ppp"),
+        (116, "alsa"),
+        (180, "usb"),
+        (189, "usb serial"),
+        (202, "msr"),
+        (203, "cpu"),
+        (226, "dri"),
+        (246, "ptp"),
+        (247, "pps"),
+        (509, "media"),
+        (510, "mei"),
+        (511, "hidraw")
+    ].iter().cloned().collect();
+
+    let expected_low: HashMap<&str, u32> = [
+        ("bsg/", 1),
+        ("dma_heap/system", 1),
+        ("gpiochip", 1),
+        ("hidraw", 1),
+        ("media", 1),
+        ("mei", 1),
+        ("ngn", 1),
+        ("nvme", 1),
+        ("rtc", 1),
+        ("watchdog", 1),
+        ("tpmrm", 1)
+    ].iter().cloned().collect();
+
+    let expected_high: HashMap<&str, u32> = [
+        ("drm_dp_aux", 1),
+        ("iiodevice", 1),
+        ("hidraw", 1),
+        ("media", 1),
+        ("mei", 1),
+        ("tpmrm", 1)
+    ].iter().cloned().collect();
+
+    for entry in fs::read_dir("/dev")? {
+        let path = entry?.path();
+        
+        if path.metadata()?.file_type().is_char_device() {
+            let hex = path.metadata()?.rdev();
+            let major = hex >> 8;
+            let pattern = path.strip_prefix("/dev/")
+                                .unwrap().to_str().unwrap_or_default()
+                                .replace(|c: char| c.is_numeric(), "");
+
+            if major >= 136 && major <= 143 { continue; }
+            if expected_major.contains_key(&major) { continue; }
+
+            let mut class = String::from("UNKNOWN");
+            if major >= 60 && major <= 63 || major >= 120 && major <= 127 {
+                class = String::from("LOCAL/EXPERIMENTAL");
+            }
+            if major >= 234 && major <= 254 {
+                class = String::from("low dynamic");
+                if expected_low.contains_key(pattern.as_str()) { continue; }
+                if expected_high.contains_key(pattern.as_str()) { continue; }
+            }
+            if major >= 384 && major <= 511 {
+                class = String::from("high dynamic");
+                if expected_high.contains_key(pattern.as_str()) { continue; }
+            }
+            let md = fs::metadata(&path)?;
+            let permissions = md.mode();
+            let uid = md.uid();
+            let gid = md.gid();
+            let inode = md.ino();
+            let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
+            if md.created().is_ok() { 
+                ctime = format_date(md.created()?.into())?; 
+            }
+            let atime = format_date(md.accessed()?.into())?;
+            let wtime = format_date(md.modified()?.into())?;
+            let p = path.to_string_lossy();
+            TxCharDevice::new("Rootkit".to_string(), "CharDeviceMimic".to_string(), 
+                        get_now()?, p.to_string(), class, pattern, major, permissions,
+                        uid, gid, inode, atime, wtime, ctime,
+                        sort_hashset(tags.clone())).report_log();
+        }
     }
     Ok(())
 }
