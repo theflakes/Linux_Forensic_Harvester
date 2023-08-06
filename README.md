@@ -135,7 +135,10 @@ Information gathered on:
 - Network connections (via procfs)
 - Possible rookit
 - Processes (via procfs)
-- Process file (file of the process on disk)
+-- Process file (file of the process on disk)
+-- Process' open files
+-- Process' loaded libraries
+-- Process mem mapped files
 - Users
 
 ## Rootkit detection techniques
