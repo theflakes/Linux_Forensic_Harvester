@@ -494,11 +494,9 @@ fn find_proc_root_socket_no_deps(files_already_seen: &mut HashSet<String>,
     .collect();
 
     for entry in fs::read_dir("/proc")? {
-        let entry = entry.unwrap();
+        let entry = entry?;
         let path = entry.path();
-        if !path.join("exe").exists() || path.ends_with("self") {
-            continue;
-        }
+        if !path.join("exe").exists() || path.ends_with("self") { continue; }
         let status = fs::read_to_string(path.join("status"))?;
         let euid = status
             .lines()
@@ -535,16 +533,9 @@ fn find_proc_root_socket_no_deps(files_already_seen: &mut HashSet<String>,
             .len();
         if libs != 2 { continue; }
         let exe_path = fs::read_link(path.join("exe"))?;
-        if false_positive.contains_key(exe_path.to_str().unwrap_or_default()) {
-            continue;
-        }
-        let name = fs::read_to_string(path.join("comm"))?;
-        println!(
-            "found euid=0 process with sockets but no libraries: {} [{}] at {}",
-            name.trim(),
-            path.file_name().unwrap_or_default().to_str().unwrap_or_default(),
-            exe_path.display()
-        );
+        if false_positive.contains_key(exe_path.to_str().unwrap_or_default()) { continue; }
+        process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
+                        files_already_seen, tags, procs_already_seen)?;
     }
     Ok(())
 }
