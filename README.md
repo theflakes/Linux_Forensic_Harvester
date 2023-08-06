@@ -138,7 +138,7 @@ Information gathered on:
   - Process file (file of the process on disk)
   - Process' open files
   - Process' loaded libraries
-  - Process mem mapped files
+  - Process' mem mapped files
 - Users
 
 ## Rootkit detection techniques
