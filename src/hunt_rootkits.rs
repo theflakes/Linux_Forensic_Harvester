@@ -58,6 +58,9 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     tags = reset_tags("Rootkit", 
                     ["ProcLockSus".to_string()].to_vec());
     find_odd_run_locks(files_already_seen, procs_already_seen, &mut tags)?;
+    tags = reset_tags("Rootkit", 
+                    ["ProcTakeOver".to_string()].to_vec());
+    find_proc_take_over(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -451,6 +454,45 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
             if link.to_string_lossy().contains("lock") {
                 process_file(&dt, &entry.path(), files_already_seen, tags);
             }
+        }
+    }
+    Ok(())
+}
+
+/*
+    Need to research and test this method more, not understanding it completely
+*/
+fn find_proc_take_over(files_already_seen: &mut HashSet<String>,
+                        procs_already_seen: &mut HashMap<String, String>, 
+                        tags: &mut HashSet<String>) -> io::Result<()> {
+    for entry in fs::read_dir("/proc")? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.join("exe").exists() 
+            || path.ends_with("self") 
+            || path.ends_with(std::process::id().to_string()) {
+            continue;
+        }
+        let exe_path = fs::read_link(path.join("exe"))?;
+        let exe = exe_path.to_string_lossy().to_string();
+        //let name = fs::read_to_string(path.join("comm"))?;
+        //let cmdline = fs::read_to_string(path.join("cmdline"))?;
+        let maps = fs::read_to_string(path.join("maps"))?;
+        let init = maps.lines().find(|line| line.contains("r--p 00000000"));
+        if init.is_none() || init.unwrap_or_default().contains("[vvar]") 
+            || init.unwrap_or_default().contains(&exe) {
+            continue;
+        }
+        let dev = init.unwrap_or_default().split_whitespace().nth(3).unwrap_or_default();
+        let inode = init.unwrap_or_default().split_whitespace().nth(4).unwrap_or_default();
+        if dev != "00:00" || inode != "0" { continue; }
+        let segment = init.unwrap_or_default().chars().next().unwrap_or_default();
+        if segment == '0' {
+            let pid = path.file_name().unwrap_or_default().to_str().unwrap_or_default();
+            process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
+                                    files_already_seen, tags, procs_already_seen)?;
+            get_process_maps("ThreadMimic", &path, &pid, files_already_seen, 
+                            procs_already_seen, tags)?;
         }
     }
     Ok(())
