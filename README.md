@@ -149,7 +149,7 @@ Information gathered on:
 - World readable run lock files
 - Odd run lock files
 - Legit process mimicry
-- Processes mimicing threads
+- Processes thread mimicry
 - Hidden sys modules
 - Raw packet sniffing processes
 - Process takeovers
