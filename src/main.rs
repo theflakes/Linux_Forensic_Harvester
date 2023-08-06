@@ -43,14 +43,13 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 
 // file paths we want to watch all files in
-const WATCH_PATHS: [&str; 15] = [
+const WATCH_PATHS: [&str; 14] = [
     "/etc",
     "/home",
     "/lib/modules",
     "/proc",
     "/root",
     "/srv",
-    "/sys",
     "/tmp",
     "/usr/lib/systemd/system",
     "/usr/local/var/www/html",
@@ -539,7 +538,8 @@ fn process_directory_files(pdt: &str, path: &str, files_already_seen: &mut HashS
     match path {
         "/proc" => examine_procs(&pdt, &path, files_already_seen, procs_already_seen)?,
         "/etc/cron.d" => process_cron(&pdt, path, files_already_seen)?,
-        "/var/spool/cron" => process_cron(&pdt, path, files_already_seen)?,
+        //"/var/spool/cron" => process_cron(&pdt, path, files_already_seen)?,
+        p if p.starts_with("/sys/kernel/") => return Ok(()),
         _ => for entry in WalkDir::new(path)
                     .max_depth(ARGS.flag_depth)
                     .into_iter()
@@ -630,7 +630,6 @@ fn main() -> std::io::Result<()> {
     if ARGS.flag_rootkit {
         rootkit_hunt(&mut files_already_seen, &mut procs_already_seen)?;
     }
-    
 
     if ARGS.flag_suidsgid {
         find_suid_sgid(&mut files_already_seen)?; 
