@@ -174,7 +174,7 @@ If you want to change the field name(s) of any fields please edit the struct fie
 ## Disclaimer
 This tool comes with no warranty or support. If anyone chooses to use it, you accept all responsability and liability.
 
-```
+```Rust
 // file paths we want to watch all files in
 const WATCH_PATHS: [&str; 14] = [
     "/etc",
