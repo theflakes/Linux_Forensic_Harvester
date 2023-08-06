@@ -206,14 +206,14 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
 /*
     report on open files for each process
 */
-fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, 
+                    files_already_seen: &mut HashSet<String>, 
+                    tags: &mut HashSet<String>) -> std::io::Result<()> {
     let data_type = "ProcessOpenFile".to_string();
     TxProcessFile::new(pdt.to_string(), data_type.clone(), get_now()?, 
                         pid, fd.to_string(), path.to_string(), 
-                        path_exists(fd), Vec::new()).report_log();
-    let mut tags: HashSet<String> = HashSet::new();
-    if pdt.eq("Rootkit") { tags.insert("Rootkit".to_string()); }
-    process_file(&data_type, Path::new(path), files_already_seen, &mut tags)?;
+                        path_exists(fd), sort_hashset(tags.clone())).report_log();
+    process_file(&data_type, Path::new(path), files_already_seen, tags)?;
     Ok(())
 }
 
@@ -225,7 +225,8 @@ fn process_open_file(pdt: &str, fd: &str, path: &str, pid: i32, files_already_se
     pipe: --> open redirector
 */
 fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str, 
-                            files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
+                            files_already_seen: &mut HashSet<String>, 
+                            tags: &mut HashSet<String>) -> std::io::Result<()> {
     let descriptors = push_file_path(root_path, "/fd")?;
     for d in WalkDir::new(descriptors)
                 .max_depth(1)
@@ -234,10 +235,54 @@ fn process_file_descriptors(path: &str, root_path: &str, pid: i32, pdt: &str,
         let entry: String = resolve_link(d.path())?.to_string_lossy().into();
         match entry {
             ref s if s.contains("socket:") => process_net_conn(path, &entry, pid)?,
-            _ => match process_open_file(&pdt, &d.path().to_string_lossy(), &entry, pid, files_already_seen) {
+            _ => match process_open_file(&pdt, &d.path().to_string_lossy(), &entry, pid, files_already_seen, tags) {
                 Ok(f) => f,
                 Err(_e) => continue }
         };
+    }
+    Ok(())
+}
+
+fn process_memmaps(pdt: &str, pid: i32,
+                    files_already_seen: &mut HashSet<String>,
+                    tags: &mut HashSet<String>) -> std::io::Result<()> {
+    let map_files_path = format!("/proc/{}/map_files", pid);
+    if !Path::new(&map_files_path).exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(map_files_path)? {
+        let entry = entry?;
+        let link = entry.path();
+        process_file(pdt, &link, files_already_seen, tags);
+    }
+    Ok(())
+}
+
+fn process_maps(pdt: &str, proc_path: &PathBuf, pid: i32, files_already_seen: &mut HashSet<String>,
+                    procs_already_seen: &mut HashMap<String, String>, 
+                    tags: &mut HashSet<String>) -> std::io::Result<()> {
+    let maps_path = proc_path.join("maps");
+    if !maps_path.is_dir() { return Ok(()) }
+    let file = fs::File::open(maps_path)?;
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line?;
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        let address_range = fields[0].to_string();
+        let permissions = fields[1].to_string();
+        let offset = fields[2].to_string();
+        let device = fields[3].to_string();
+        let inode = to_u128(fields[4])?;
+        let map_path = fields.get(5).unwrap_or(&"").to_string();
+        let data_type = "ProcessMap".to_string();
+        TxProcessMaps::new(pdt.to_string(), 
+                data_type.clone(), get_now()?, 
+                map_path.clone(), pid, address_range, 
+                permissions, offset, device, inode,
+                sort_hashset(tags.clone())).report_log();
+        let mp = push_file_path(&map_path, "")?;
+        process_file(&data_type, &mp, files_already_seen, tags);
     }
     Ok(())
 }
@@ -268,11 +313,12 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
                     path.clone(), exists, comm, cmd, pid, ppid, env, 
                     root.to_string_lossy().into(),
                     cwd.to_string_lossy().into(), sort_hashset(tags.clone())).report_log();
-    // do not process file descriptors if we've already process them
     if procs_already_seen.get(root_path).is_none() || !procs_already_seen.get(root_path).unwrap().eq(&path) {
         procs_already_seen.insert(root_path.to_string(), path.clone());
         process_file(pdt, bin, files_already_seen, tags);
-        process_file_descriptors(&path, root_path, pid, &data_type, files_already_seen)?;
+        process_file_descriptors(&path, root_path, pid, &data_type, files_already_seen, tags)?;
+        process_maps(pdt, bin, pid, files_already_seen, procs_already_seen, tags)?;
+        process_memmaps(pdt, pid, files_already_seen, tags)?;
     }  
     Ok(())
 }
@@ -441,8 +487,8 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
     let p: String = file_path.to_string_lossy().into();
     if (file_path.is_symlink() || file_path.is_file()) && !files_already_seen.contains(&p.clone()) {
         files_already_seen.insert(p);    // track files we've processed so we don't process them more than once
-        let (parent_data_type, path_buf) = get_link_info(&pdt, file_path)?; // is this file a symlink? TRUE: get symlink info and path to linked file
-        
+        let (parent_data_type, path_buf) = get_link_info(&pdt, file_path, tags)?; // is this file a symlink? TRUE: get symlink info and path to linked file
+        if path_buf.starts_with("/dev/snd/") { return Ok(()) } // hanging on snd devices when they are in use, perhaps try tokio timeout
         let file = open_file(&path_buf)?;
         let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
         if file.metadata()?.created().is_ok() { 

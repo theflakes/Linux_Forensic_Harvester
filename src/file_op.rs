@@ -158,7 +158,7 @@ fn link_target_exists(link_path: &std::path::Path) -> bool {
 // gather metadata for symbolic links
 pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String, 
                     file_path: String, hidden: bool, deleted: bool,
-                    tags: HashSet<String>) -> std::io::Result<()> {
+                    tags: &mut HashSet<String>) -> std::io::Result<()> {
     let mut ctime = get_epoch_start();  // Most linux versions do not support created timestamps
     if link.created().is_ok() {
         ctime = format_date(link.created()?.into())?;
@@ -171,7 +171,7 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String,
                     "ShellLink".to_string(), get_now()?, 
                     link_path, file_path, atime, 
                     wtime, ctime, size, hidden, 
-                    deleted, sort_hashset(tags)).report_log();
+                    deleted, sort_hashset(tags.clone())).report_log();
     Ok(())
 }
 
@@ -180,12 +180,11 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String,
     return parent data_type and path to file
     never return the path to a symnlink
 */
-pub fn get_link_info(pdt: &str, link_path: &std::path::Path) -> std::io::Result<(String, std::path::PathBuf)> {
+pub fn get_link_info(pdt: &str, link_path: &std::path::Path, tags: &mut HashSet<String>) -> std::io::Result<(String, std::path::PathBuf)> {
     let mut parent_data_type = pdt.to_string();
     let mut path = PathAbs::new(&link_path)?.clone().into();
     let sl = fs::symlink_metadata(&link_path)?;
     if sl.file_type().is_symlink() {
-        let mut tags: HashSet<String> = HashSet::new();
         path = resolve_link(link_path)?;
         let lp = path.to_string_lossy().to_string();
         if lp.contains("(deleted)") {

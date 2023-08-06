@@ -28,39 +28,52 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     let mut tags = reset_tags("Rootkit", 
                         ["KernelTaint".to_string()].to_vec());
     examine_kernel_taint(&mut tags);
+
     tags = reset_tags("Rootkit", 
                     ["ProcHidden".to_string()].to_vec());
     find_hidden_procs(files_already_seen, procs_already_seen, &mut tags)?;
+
     tags = reset_tags("Rootkit", 
                     ["ProcLockWorldRead".to_string()].to_vec());
     find_files_with_permissions(Path::new("/run"), 
                     0o644, files_already_seen, 
                     &"Rootkit",
                     tags);
+
     tags = reset_tags("Rootkit", 
                     ["ProcMimic".to_string()].to_vec());
     match find_proc_mimics(files_already_seen, procs_already_seen, &mut tags) {
         Ok(it) => it,
         Err(err) => (()),
     };
+
     tags = reset_tags("Rootkit", 
                     ["ProcHiddenParent".to_string()].to_vec());
     find_hidden_parent_procs(files_already_seen, procs_already_seen, &mut tags)?;
+
     tags = reset_tags("Rootkit", 
                     ["ThreadMimic".to_string()].to_vec());
     find_thread_mimics(files_already_seen, procs_already_seen, &mut tags)?;
+
     tags = reset_tags("Rootkit", 
                     ["ModulesHidden".to_string()].to_vec());
     find_hidden_sys_modules(files_already_seen, procs_already_seen, &mut tags)?;
+
     tags = reset_tags("Rootkit", 
                     ["PacketSniffer".to_string()].to_vec());
     find_raw_packet_sniffer(files_already_seen, procs_already_seen, &mut tags)?;
+
     tags = reset_tags("Rootkit", 
                     ["ProcLockSus".to_string()].to_vec());
     find_odd_run_locks(files_already_seen, procs_already_seen, &mut tags)?;
+
     tags = reset_tags("Rootkit", 
                     ["ProcTakeOver".to_string()].to_vec());
     find_proc_takeover(files_already_seen, procs_already_seen, &mut tags)?;
+
+    tags = reset_tags("Rootkit", 
+                    ["ProcRootSocketNoDeps".to_string()].to_vec());
+    find_proc_root_socket_no_deps(files_already_seen, procs_already_seen, &mut tags)?;
     Ok(())
 }
 
@@ -223,9 +236,6 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
         if expected.get(&pattern) == Some(&1) { continue; }
         process_process(&"Rootkit", &base_path.to_string_lossy(), &exe_path, 
                         files_already_seen, tags, procs_already_seen)?;
-        let pid = base_path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-        get_process_maps("ProcMimic", &base_path, pid, files_already_seen, 
-                        procs_already_seen, tags)?;
     }
     Ok(())
 }
@@ -255,8 +265,6 @@ fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>,
             process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                             files_already_seen, tags, procs_already_seen)?;
             let pid = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-            get_process_maps("ProcHiddenParent", &path, pid, files_already_seen, 
-                            procs_already_seen, tags)?;
         }
     }
     Ok(())
@@ -297,37 +305,8 @@ fn find_hidden_procs(files_already_seen: &mut HashSet<String>,
         let exe = fs::read_link(&exe_path).ok();
         process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, 
                         files_already_seen, &mut tags, procs_already_seen)?;
-        get_process_maps("ProcHidden", &proc_dir.to_path_buf(), &pid.to_string(), 
-                        files_already_seen, procs_already_seen, tags)?;
     }
 
-    Ok(())
-}
-
-fn get_process_maps(pdt: &str, proc_path: &PathBuf, pid: &str, files_already_seen: &mut HashSet<String>,
-                    procs_already_seen: &mut HashMap<String, String>, 
-                    tags: &mut HashSet<String>) -> io::Result<()> {
-    let maps_path = proc_path.join("maps");
-    let file = fs::File::open(maps_path)?;
-    let reader = BufReader::new(file);
-    for line in reader.lines() {
-        let line = line?;
-        let fields: Vec<&str> = line.split_whitespace().collect();
-        let address_range = fields[0].to_string();
-        let permissions = fields[1].to_string();
-        let offset = fields[2].to_string();
-        let device = fields[3].to_string();
-        let inode = to_u128(fields[4])?;
-        let map_path = fields.get(5).unwrap_or(&"").to_string();
-        let data_type = "ProcessMap".to_string();
-        TxProcessMaps::new(pdt.to_string(), 
-                data_type.clone(), get_now()?, 
-                map_path.clone(), to_int32(pid)?, address_range, 
-                permissions, offset, device, inode,
-                sort_hashset(tags.clone())).report_log();
-        let mp = push_file_path(&map_path, "")?;
-        process_file(&data_type, &mp, files_already_seen, tags);
-    }
     Ok(())
 }
 
@@ -347,8 +326,6 @@ fn find_thread_mimics(files_already_seen: &mut HashSet<String>,
                     let exe = path.join("exe");
                     process_process(&"Rootkit", &path.to_string_lossy(), &exe, 
                                     files_already_seen, tags, procs_already_seen)?;
-                    get_process_maps("ThreadMimic", &path, pid, files_already_seen, 
-                                    procs_already_seen, tags)?;
                 }
             }
         }
@@ -404,8 +381,6 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
         let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
         process_process(&pdt, &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
-        get_process_maps("PacketSniffer", &path, &pid, files_already_seen, 
-                        procs_already_seen, tags)?;
         for line in packet.lines() {
             if line.starts_with("sk") || line.contains(&format!(" {}", inode)) {
                 TxGeneral::new(pdt.clone(), 
@@ -422,9 +397,11 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
                     procs_already_seen: &mut HashMap<String, String>, 
                     tags: &mut HashSet<String>) -> io::Result<()> {
     let mut pids = Vec::new();
+    let self_pid = std::process::id().to_string();
     for entry in fs::read_dir("/proc")? {
         let entry = entry?;
-        if !entry.file_type()?.is_dir() { continue; }
+        if !entry.file_type()?.is_dir() 
+            || entry.path().ends_with(std::process::id().to_string()) { continue; }
         let path = entry.path().join("fd");
         if !path.exists() { continue; }
         for fd_entry in fs::read_dir(path)? {
@@ -437,15 +414,12 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
             }
         }
     }
-    
     let dt = "ProcLockSus".to_string();
     for pid in pids {
         let path = Path::new(&format!("/proc/{}", pid)).to_owned();
         let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
         process_process(&dt, &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
-        get_process_maps(&dt, &path, &pid, files_already_seen, 
-                        procs_already_seen, tags)?;
         let fd = format!("/proc/{}/fd", pid);
         for entry in fs::read_dir(fd)? {
             let entry = entry?;
@@ -461,6 +435,17 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
 
 /*
     Need to research and test this method more, not understanding it completely
+
+    The /proc/[pid]/map_files directory in the Linux procfs file system contains 
+    symbolic links to the memory-mapped files of a process. Each entry in this 
+    directory represents a memory-mapped file, with the name of the entry indicating 
+    the memory address range occupied by the mapping. The symbolic link points to the 
+    file that is mapped into memory.
+
+    Memory-mapped files are used by processes to map the contents of a file into their 
+    virtual address space, allowing them to access the file’s data as if it were in memory. 
+    This can be useful for applications that need to work with large data sets, as it 
+    allows them to access the data more efficiently.
 */
 fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
                         procs_already_seen: &mut HashMap<String, String>, 
@@ -475,8 +460,6 @@ fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
         }
         let exe_path = fs::read_link(path.join("exe"))?;
         let exe = exe_path.to_string_lossy().to_string();
-        //let name = fs::read_to_string(path.join("comm"))?;
-        //let cmdline = fs::read_to_string(path.join("cmdline"))?;
         let maps = fs::read_to_string(path.join("maps"))?;
         let init = maps.lines().find(|line| line.contains("r--p 00000000"));
         if init.is_none() || init.unwrap_or_default().contains("[vvar]") 
@@ -491,9 +474,77 @@ fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
             let pid = path.file_name().unwrap_or_default().to_str().unwrap_or_default();
             process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                                     files_already_seen, tags, procs_already_seen)?;
-            get_process_maps("ThreadMimic", &path, &pid, files_already_seen, 
-                            procs_already_seen, tags)?;
         }
+    }
+    Ok(())
+}
+
+fn find_proc_root_socket_no_deps(files_already_seen: &mut HashSet<String>,
+                                procs_already_seen: &mut HashMap<String, String>, 
+                                tags: &mut HashSet<String>) -> io::Result<()> {
+    let false_positive: HashMap<&str, u8> = [
+        ("/usr/bin/containerd", 1),
+        ("/usr/bin/fusermount3", 1),
+        ("/usr/sbin/acpid", 1),
+        ("/usr/sbin/mcelog", 1),
+        ("/usr/bin/docker-proxy", 1),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    for entry in fs::read_dir("/proc")? {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if !path.join("exe").exists() || path.ends_with("self") {
+            continue;
+        }
+        let status = fs::read_to_string(path.join("status"))?;
+        let euid = status
+            .lines()
+            .find(|line| line.starts_with("Uid:"))
+            .unwrap_or_default()
+            .split_whitespace()
+            .nth(1)
+            .unwrap();
+        if euid != "0" { continue; }
+        let sockets = fs::read_dir(path.join("fd"))?
+            .filter(|entry| {
+                entry
+                    .as_ref()
+                    .unwrap()
+                    .path()
+                    .read_link()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .starts_with("socket:")
+            })
+            .count();
+        if sockets == 0 { continue; }
+        let libs = fs::read_dir(path.join("map_files"))
+            .unwrap()
+            .filter_map(|entry| {
+                let link = entry.unwrap().path().read_link().unwrap_or_default();
+                if link.to_string_lossy().ends_with(".so") {
+                    Some(link)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .len();
+        if libs != 2 { continue; }
+        let exe_path = fs::read_link(path.join("exe"))?;
+        if false_positive.contains_key(exe_path.to_str().unwrap_or_default()) {
+            continue;
+        }
+        let name = fs::read_to_string(path.join("comm"))?;
+        println!(
+            "found euid=0 process with sockets but no libraries: {} [{}] at {}",
+            name.trim(),
+            path.file_name().unwrap_or_default().to_str().unwrap_or_default(),
+            exe_path.display()
+        );
     }
     Ok(())
 }
