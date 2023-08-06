@@ -126,6 +126,10 @@ Information gathered on:
   - UNCs
   - URLs
   - Web shells
+  - Custom hex search
+  - Custom Regex
+  - Right to left trickery
+  - Shell references (sh, bash, zsh, ...)
 - Link files
 - Loaded Kernel Modules
 - Network connections (via procfs)
@@ -135,11 +139,24 @@ Information gathered on:
 - Users
 
 ## Rootkit detection techniques
-##### See: https://github.com/tstromberg/sunlight/tree/main
 - Searching for and reporting on a file that is larger on disk than when read into memory
 - File data that is found in memory mapped read files not found via a standard file read
 - Tainted kernel module information
 - Hidden processes
+- World readable run lock files
+- Odd run lock files
+- Legit process mimicry
+- Processes mimicing threads
+- Hidden sys modules
+- Raw packet sniffing processes
+- Process takeovers
+- Proccess run as root with socket and no deps outside of libc
+- Odd character devices
+##### See:
+- https://github.com/tstromberg/sunlight/tree/main
+- https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
+- https://www.linkedin.com/pulse/detecting-linux-kernel-process-masquerading-command-line-rowland/
+
 
 Some file contents are examined looking for other interesting strings. For example, if another file is referenced within a file, that file's metadata will also be retreived. Other strings of interest found in file contents are reported: IPs, file paths, URLs, shellcode, Base64 and misc encodings, and UNC paths.  
   
