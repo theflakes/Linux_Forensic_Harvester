@@ -160,7 +160,6 @@ Information gathered on:
 - https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
 - https://www.linkedin.com/pulse/detecting-linux-kernel-process-masquerading-command-line-rowland/
 
-
 Some file contents are examined looking for other interesting strings. For example, if another file is referenced within a file, that file's metadata will also be retreived. Other strings of interest found in file contents are reported: IPs, file paths, URLs, shellcode, Base64 and misc encodings, and UNC paths.  
   
 Process information is retreived via ProcFS parsing.  
@@ -174,3 +173,51 @@ If you want to change the field name(s) of any fields please edit the struct fie
 
 ## Disclaimer
 This tool comes with no warranty or support. If anyone chooses to use it, you accept all responsability and liability.
+
+```
+// file paths we want to watch all files in
+const WATCH_PATHS: [&str; 14] = [
+    "/etc",
+    "/home",
+    "/lib/modules",
+    "/proc",
+    "/root",
+    "/srv",
+    "/tmp",
+    "/usr/lib/systemd/system",
+    "/usr/local/var/www/html",
+    "/usr/share/nginx/html",
+    "/usr/share/nginx/www",
+    "/var/log",
+    "/var/spool/cron",
+    "/var/www",
+    ];
+// files mime types whose content we want to look at for interesting things
+const WATCH_FILE_TYPES: [&str; 25] = [
+    "abiword",
+    "/pdf",
+    "/pkix-cert+pem",
+    "/rtf",
+    "/vnd.iccprofile",
+    "/x-desktop",
+    "/x-object",
+    "/x-pcapng",
+    "/x-perl",
+    "/x-sh",
+    "/x-tcl",
+    "/xml",
+    "bittorrent",
+    "excel",
+    "javascript",
+    "json",
+    "msword",
+    "officedocument",
+    "opendocument",
+    "powerpoint",
+    "presentation",
+    "stardivision",
+    "text/",
+    "wordperfect",
+    "yaml",
+    ];
+```
