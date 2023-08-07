@@ -508,10 +508,10 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
         let mode = file.metadata()?.mode();
         let perms = parse_permissions(mode);
         let (is_suid, is_sgid) = is_suid_sgid(mode);
+        let tags_copy = tags.clone();
         if is_suid { tags.insert("suid".to_string()); }
         if is_sgid { tags.insert("sgid".to_string()); }
         let (md5, mime_type) = get_file_content_info(&file)?;
-
         // certain files we want to parse explicitely
         let orig_path = file_path.clone();
         let path = file_path.to_string_lossy();
@@ -528,6 +528,8 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
             path_str.into(), md5, mime_type.clone(), atime, wtime, 
             ctime, size, is_hidden(&path_buf), uid, gid, 
             nlink, inode, perms, sort_hashset(tags.to_owned())).report_log();
+        tags.clear();
+        tags.extend(tags_copy);
     }
     Ok(())
 }
@@ -544,6 +546,8 @@ fn process_directory_files(pdt: &str, path: &str, files_already_seen: &mut HashS
                     .max_depth(ARGS.flag_depth)
                     .into_iter()
                     .filter_map(|e| e.ok()) {
+                let p = entry.path().to_string_lossy().to_owned();
+                find_hidden_directory_contents(&p)?;
                 process_file(&pdt, entry.path(), files_already_seen, &mut HashSet::new());
                 sleep();
             },
@@ -638,7 +642,6 @@ fn main() -> std::io::Result<()> {
     if ARGS.flag_forensics {
         for path in WATCH_PATHS.iter() {
             if !path_exists(path) { continue }
-            find_hidden_directory_contents(path)?;
             match process_directory_files("", path, &mut files_already_seen, &mut procs_already_seen) {
                 Ok(f) => f,
                 Err(_e) => continue};

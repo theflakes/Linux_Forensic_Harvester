@@ -168,10 +168,10 @@ pub fn process_link(pdt: &str, link: std::fs::Metadata, link_path: String,
     let size = link.len();
     if not_in_time_window(&atime, &ctime, &wtime)? { return Ok(()) }
     TxLink::new(pdt.to_string(), 
-                    "ShellLink".to_string(), get_now()?, 
-                    link_path, file_path, atime, 
-                    wtime, ctime, size, hidden, 
-                    deleted, sort_hashset(tags.clone())).report_log();
+                "ShellLink".to_string(), get_now()?, 
+                link_path, file_path, atime, 
+                wtime, ctime, size, hidden, 
+                deleted, sort_hashset(tags.clone())).report_log();
     Ok(())
 }
 
@@ -184,6 +184,7 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path, tags: &mut HashSet<
     let mut parent_data_type = pdt.to_string();
     let mut path = PathAbs::new(&link_path)?.clone().into();
     let sl = fs::symlink_metadata(&link_path)?;
+    let tags_copy = tags.clone();
     if sl.file_type().is_symlink() {
         path = resolve_link(link_path)?;
         let lp = path.to_string_lossy().to_string();
@@ -201,6 +202,8 @@ pub fn get_link_info(pdt: &str, link_path: &std::path::Path, tags: &mut HashSet<
                     is_hidden(&path), 
                     link_target_exists(link_path),
                     tags)?;
+        tags.clear();
+        tags.extend(tags_copy);
     }
     Ok((parent_data_type, path))
 }
