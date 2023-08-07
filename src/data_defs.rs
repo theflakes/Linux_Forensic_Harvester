@@ -148,7 +148,8 @@ pub fn sleep() {
 
 pub fn sort_hashset(tags: HashSet<String>) -> Vec<String> {
     let mut vec: Vec<String> = tags.into_iter().collect();
-    vec.sort();
+    //vec.sort();
+    vec.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
     return vec
 }
 
