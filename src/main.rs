@@ -586,8 +586,8 @@ fn find_suid_sgid(files_already_seen: &mut HashSet<String>) -> std::io::Result<(
                     Err(_) => continue,
                 };
             }
-            sleep();
         }
+        sleep();
     }
     Ok(())
 }
