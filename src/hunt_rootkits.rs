@@ -17,7 +17,7 @@ use std::{
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
-    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts, TxCharDevice}, 
+    data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts, TxCharDevice, sleep}, 
     time::{get_now, get_epoch_start}, 
     file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts, parse_permissions}, 
         mutate::{to_u128, to_int32, push_file_path, format_date}};
@@ -240,6 +240,7 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
         if expected.get(&pattern) == Some(&1) { continue; }
         process_process(&"Rootkit", &base_path.to_string_lossy(), &exe_path, 
                         files_already_seen, tags, procs_already_seen)?;
+        sleep();
     }
     Ok(())
 }
@@ -270,6 +271,7 @@ fn find_hidden_parent_procs(files_already_seen: &mut HashSet<String>,
                             files_already_seen, tags, procs_already_seen)?;
             let pid = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
         }
+        sleep();
     }
     Ok(())
 }
@@ -309,6 +311,7 @@ fn find_hidden_procs(files_already_seen: &mut HashSet<String>,
         let exe = fs::read_link(&exe_path).ok();
         process_process(&"Rootkit", &proc_dir.to_string_lossy(), &exe_path, 
                         files_already_seen, &mut tags, procs_already_seen)?;
+        sleep();
     }
 
     Ok(())
@@ -333,6 +336,7 @@ fn find_thread_mimics(files_already_seen: &mut HashSet<String>,
                 }
             }
         }
+        sleep();
     }
     Ok(())
 }
@@ -432,6 +436,7 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
             if link.to_string_lossy().contains("lock") {
                 process_file(&dt, &entry.path(), files_already_seen, tags);
             }
+            sleep();
         }
     }
     Ok(())
@@ -479,6 +484,7 @@ fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
             process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                                     files_already_seen, tags, procs_already_seen)?;
         }
+        sleep();
     }
     Ok(())
 }
@@ -540,6 +546,7 @@ fn find_proc_root_socket_no_deps(files_already_seen: &mut HashSet<String>,
         if false_positive.contains_key(exe_path.to_str().unwrap_or_default()) { continue; }
         process_process(&"Rootkit", &path.to_string_lossy(), &exe_path, 
                         files_already_seen, tags, procs_already_seen)?;
+        sleep();
     }
     Ok(())
 }
@@ -642,6 +649,7 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
                         uid, gid, inode, atime, wtime, ctime,
                         sort_hashset(tags.clone())).report_log();
         }
+        sleep();
     }
     Ok(())
 }

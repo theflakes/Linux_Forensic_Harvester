@@ -195,6 +195,7 @@ fn process_net_conn(path: &str, conn: &str, pid: i32) -> std::io::Result<()> {
                                     to_u128(&inode)?, Vec::new()).report_log();
                 }
                 matched = true;
+                sleep();
             }
             if matched { break };
         }
@@ -282,6 +283,7 @@ fn process_maps(pdt: &str, proc_path: &PathBuf, pid: i32, files_already_seen: &m
                 sort_hashset(tags.clone())).report_log();
         let mp = push_file_path(&map_path, "")?;
         process_file(&data_type, &mp, files_already_seen, tags);
+        sleep();
     }
     Ok(())
 }
@@ -338,6 +340,7 @@ fn parse_modules(pdt: &str, path: &str) -> std::io::Result<()> {
                             "KernelModule".to_string(), get_now()?, 
                             name, size, loaded, dependencies, state, offset, 
                             Vec::new()).report_log();
+        sleep();
     }
     Ok(())
 }
@@ -355,6 +358,7 @@ fn parse_mounts(pdt: &str, path: &str) -> std::io::Result<()> {
                             "MountPoint".to_string(), get_now()?, 
                             name, mount_point, file_system_type, mount_options, 
                             Vec::new()).report_log();
+        sleep();
     }
     Ok(())
 }
@@ -407,6 +411,7 @@ fn parse_users(pdt: &str, path: &str) -> std::io::Result<()> {
         TxLocalUser::new(pdt.to_string(), "LocalUser".to_string(), get_now()?, 
                         account_name, uid, gid, description, home_directory, 
                         shell, Vec::new()).report_log();
+        sleep();
     }
     Ok(())
 }
@@ -421,6 +426,7 @@ fn parse_groups(pdt: &str, path: &str) -> std::io::Result<()> {
         let members = values[3].to_string();
         TxLocalGroup::new(pdt.to_string(), "LocalGroup".to_string(), get_now()?, 
                             group_name, gid, members, Vec::new()).report_log();
+        sleep();
     }
     Ok(())
 }
@@ -442,6 +448,7 @@ fn parse_cron(pdt: &str, path: &str) -> std::io::Result<()> {
         TxCron::new(pdt.to_string(), "Cron".to_string(), get_now()?, 
                     path.to_string(), minute, hour, day_of_month, month, 
                     day_of_week, account_name, command_line, Vec::new()).report_log();
+        sleep();
     }
     Ok(())
 }
@@ -458,6 +465,7 @@ fn process_cron(pdt: &str, path: &str, files_already_seen: &mut HashSet<String>)
                 Ok(_) => continue,
                 Err(_) => continue,
             };
+        sleep();
     }
     Ok(())
 }
@@ -531,6 +539,7 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
         tags.clear();
         tags.extend(tags_copy);
     }
+    sleep();
     Ok(())
 }
 

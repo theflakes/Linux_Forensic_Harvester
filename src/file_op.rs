@@ -265,6 +265,7 @@ pub fn find_files_with_permissions(start: &Path, permissions: u32,
                     process_file(pdt, &path, &mut files_already_seen, &mut tags)?
                 }
             }
+            sleep();
         }
     }
     Ok(())

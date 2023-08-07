@@ -27,6 +27,7 @@ pub fn report_finds(pdt: &str, re: &Regex, file: &str, text: &str, flag: &str) -
             "FileContent".to_string(), 
             get_now()?, file.to_string(), line.to_string(), 
             "".to_string(), sort_hashset(tags)).report_log();
+        sleep();
     }
     Ok(found)
 }
