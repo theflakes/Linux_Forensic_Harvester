@@ -509,8 +509,8 @@ fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSe
         let perms = parse_permissions(mode);
         let (is_suid, is_sgid) = is_suid_sgid(mode);
         let tags_copy = tags.clone();
-        if is_suid { tags.insert("suid".to_string()); }
-        if is_sgid { tags.insert("sgid".to_string()); }
+        if is_suid { tags.insert("Suid".to_string()); }
+        if is_sgid { tags.insert("Sgid".to_string()); }
         let (md5, mime_type) = get_file_content_info(&file)?;
         // certain files we want to parse explicitely
         let orig_path = file_path.clone();
