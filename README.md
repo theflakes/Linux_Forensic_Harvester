@@ -117,8 +117,11 @@ Anything of interest (a hunt, e.g. for rootkits or interesting stings/content) w
 
 Information gathered on:
 - Cron jobs
+  - Data type: `Cron`
 - Drive mounts
+  - Data type: `MountPoint`
 - Groups
+  - Data type: `LocalGroup`
 - Interesting File Content
   - Encoded strings
     - Tag: `Encoding`, `Base64`, `Obfuscation`
@@ -145,15 +148,24 @@ Information gathered on:
   - Possible suspicious commands
     - Tag: `Suspicious`
 - Link files
+  - Data type: `ShellLink`
 - Loaded Kernel Modules
+  - Data type: `KernelModule`
 - Network connections (via procfs)
+  - Data type: `NetConn`
 - Possible rookit
+  - Data type: `Rootkit`
 - Processes (via procfs)
+  - Data type: Process
   - Process file (file of the process on disk)
   - Process' open files
+    - Data type: `ProcessOpenFile`
   - Process' loaded libraries
+    - Data type: `ProcessMap`
   - Process' mem mapped files
+    - Data type: `ProcessMaps`
 - Users
+  - Data type: `LocalUser`
 
 ## Rootkit detection techniques
 - Any logs generated due to a rootkit hunt will have `Rootkit` set as their `parent_data_type`
