@@ -113,23 +113,37 @@ Output is in Json for import into ELK or any other Json indexer. I may add other
 No configuration files are currently included. Everything is compiled in to acheive easier remote use of the tool. Just copy file to host and run. Pipe / redirect the output with standard Linux tools. At some point I will probably add a network send option.
 
 ## About the logs
+Anything of interest (a hunt, e.g. for rootkits or interesting stings/content) will be noted in the `tags` field.  
+
 Information gathered on:
 - Cron jobs
 - Drive mounts
 - Groups
 - Interesting File Content
   - Encoded strings
-  - File
-  - File paths
+    - Tag: `Encoding`, `Base64`, `Obfuscation`
+  - File referenced in a file's content
+    - Tag: `FilePath` - If a file's forensic data was harvested due to it being referenced in another file this tag is added
   - IPs (v4 and v6)
+    - Tag: `IPv4`, `IPv6`
   - Shell code
+    - Tag: `ShellCode`
   - UNCs
+    - Tag: `Unc`
   - URLs
+    - Tag: `Url`
   - Web shells
+    - Tag: `WebShell`
   - Custom hex search
+    - Tag: `Hex`
   - Custom Regex
+    - Tag: `Regex`
   - Right to left trickery
+    - Tag: `RightLeft`
   - Shell references (sh, bash, zsh, ...)
+    - Tag: `Shell`
+  - Possible suspicious commands
+    - Tag: `Suspicious`
 - Link files
 - Loaded Kernel Modules
 - Network connections (via procfs)
@@ -142,19 +156,33 @@ Information gathered on:
 - Users
 
 ## Rootkit detection techniques
-- Searching for and reporting on a file that is larger on disk than when read into memory
+- Any logs generated due to a rootkit hunt will have `Rootkit` set as their `parent_data_type`
 - File data that is found in memory mapped read files not found via a standard file read
+  - Tag: `DataHidden`
+- Directory with hidden contents
+  - Tag: `DirContentsHidden`
 - Tainted kernel module information
+  - Tag: `KernelTaint`
 - Hidden processes
+  - Tag: `ProcHidden`
 - World readable run lock files
+  - Tag: `ProcLockWorldRead`
 - Odd run lock files
+  - Tag: `ProcLockSus`
 - Legit process mimicry
+  - Tag: `ProcMimic`
 - Processes thread mimicry
+  - Tag: `ThreadMimic`
 - Hidden sys modules
+  - Tag: `ModuleHidden`
 - Raw packet sniffing processes
+  - Tag: `PacketSniffer`
 - Process takeovers
+  - Tag: `ProcTakeover`
 - Proccess run as root with socket and no deps outside of libc
+  - Tag: `ProcRootSocketNoDeps`
 - Odd character devices
+  - Tag: `CharDeviceMimic`
 ##### See:
 - https://github.com/tstromberg/sunlight/tree/main
 - https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/

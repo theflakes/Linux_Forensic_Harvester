@@ -56,7 +56,7 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     find_thread_mimics(files_already_seen, procs_already_seen, &mut tags)?;
 
     tags = reset_tags("Rootkit", 
-                    ["ModulesHidden".to_string()].to_vec());
+                    ["ModuleHidden".to_string()].to_vec());
     find_hidden_sys_modules(files_already_seen, procs_already_seen, &mut tags)?;
 
     tags = reset_tags("Rootkit", 
@@ -68,7 +68,7 @@ pub fn rootkit_hunt(files_already_seen: &mut HashSet<String>,
     find_odd_run_locks(files_already_seen, procs_already_seen, &mut tags)?;
 
     tags = reset_tags("Rootkit", 
-                    ["ProcTakeOver".to_string()].to_vec());
+                    ["ProcTakeover".to_string()].to_vec());
     find_proc_takeover(files_already_seen, procs_already_seen, &mut tags)?;
 
     tags = reset_tags("Rootkit", 
@@ -165,10 +165,10 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<H
         }
     }
     if differences.is_empty() { return Ok(tags) }
-    tags.insert("HiddenData".to_string());
+    tags.insert("DataHidden".to_string());
     TxHiddenData::new(
         "File".to_string(), 
-        "HiddenData".to_string(), 
+        "DataHidden".to_string(), 
         get_now()?, 
         (file_path.to_string_lossy()).into_owned(), 
         size, size_read, sort_hashset(tags.clone())).report_log();

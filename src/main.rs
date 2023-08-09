@@ -108,22 +108,6 @@ fn run_hunts(pdt: &str, file: &str, text: &str) ->  std::io::Result<HashSet<Stri
     Ok(tags)
 }
 
-/*
-    identify files being referenced in the file content 
-    this is so we can harvest the metadata on these files as well
-*/
-fn find_paths(text: &str, files_already_seen: &mut HashSet<String>) -> std::io::Result<()> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r#"(?mix)(?:^|[\x20"':=!|])((?:/[\w.-]+)+)"#)
-                                        .expect("Invalid Regex");
-    }
-    for c in RE.captures_iter(text) {
-        let path = Path::new(&c[1]);
-        process_file("FileContent", path, files_already_seen, &mut HashSet::new())?;
-    }
-    Ok(())
-}
-
 // take IPv4 socket and translate it
 fn get_ipv4_port(socket: &str) -> std::io::Result<(String, u16)> {
     let (ip, port) =
@@ -480,7 +464,7 @@ fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u6
     if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
         let data = read_file_string(file_path)?;
         if !data.is_empty() {
-            find_paths(&data, files_already_seen)?;
+            tags.insert(found_paths(&data, files_already_seen)?);
             let size_read = data.len() as u64;
             tags.extend(get_rootkit_hidden_file_data(file_path, size)?);
             if size_read < ARGS.flag_max { tags.extend(run_hunts(pdt, path, &data)?) };
@@ -490,7 +474,7 @@ fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u6
 }
 
 // harvest a file's metadata
-fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>) -> std::io::Result<()> {
+pub fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut HashSet<String>, tags: &mut HashSet<String>) -> std::io::Result<()> {
     let p: String = file_path.to_string_lossy().into();
     if (file_path.is_symlink() || file_path.is_file()) && !files_already_seen.contains(&p.clone()) {
         files_already_seen.insert(p);    // track files we've processed so we don't process them more than once
@@ -611,9 +595,9 @@ fn find_hidden_directory_contents(dir: &str) -> std::io::Result<()> {
     if hard_links <= visible_entries + 2 { return Ok(()) }
     let pdt = "Rootkit".to_string();
     let mut tags: HashSet<String> = HashSet::new();
-    tags.insert("HiddenDirContents".to_string());
+    tags.insert("DirContentsHidden".to_string());
     TxDirContentCounts::new(pdt.to_string(), 
-            "HiddenDirContents".to_owned(), get_now()?, dir.to_string(), 
+            "DirContentsHidden".to_owned(), get_now()?, dir.to_string(), 
             hard_links, visible_entries, hidden_count, 
             sort_hashset(tags.clone())).report_log();
     Ok(())

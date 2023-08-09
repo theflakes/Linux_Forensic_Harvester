@@ -3,8 +3,8 @@ extern crate regex;
 extern crate bstr;
 
 use regex::Regex;
-use std::{collections::HashSet, hash::Hash};
-use crate::{data_defs::*, file_op::*, time::*};
+use std::{collections::HashSet, hash::Hash, path::Path};
+use crate::{data_defs::*, file_op::*, time::*, process_file};
 use std::{io::Result, str};
 use bstr::ByteSlice;
 
@@ -77,6 +77,25 @@ pub fn found_hex(bytes: &Vec<u8>, find_this: &Vec<u8>) -> Result<bool>
     Ok(false)
 }
 
+/*
+    identify files being referenced in the file content 
+    this is so we can harvest the metadata on these files as well
+*/
+pub fn found_paths(text: &str, files_already_seen: &mut HashSet<String>) -> std::io::Result<String> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r#"(?mix)(?:^|[\x20"':=!|])((?:/[\w.-]+)+)"#)
+                                .expect("Invalid Regex");
+    }
+    let mut tag = String::new();
+    let mut tags: HashSet<String> = HashSet::new();
+    for c in RE.captures_iter(text) {
+        let path = Path::new(&c[1]);
+        tag = "FilePath".to_string();
+        tags.insert(tag.clone());
+        process_file("FileContent", path, files_already_seen, &mut tags)?;
+    }
+    Ok(tag)
+}
 
 pub fn found_ipv4(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> 
 {

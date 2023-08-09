@@ -146,9 +146,9 @@ pub fn sleep() {
     }
 }
 
-pub fn sort_hashset(tags: HashSet<String>) -> Vec<String> {
+pub fn sort_hashset(mut tags: HashSet<String>) -> Vec<String> {
+    tags.remove("");
     let mut vec: Vec<String> = tags.into_iter().collect();
-    //vec.sort();
     vec.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
     return vec
 }
@@ -402,7 +402,7 @@ pub struct TxHiddenData {
     src_ip: String,
     #[serde(default = "File")]
     pub parent_data_type: String,
-    #[serde(default = "HiddenData")]
+    #[serde(default = "DataHidden")]
     pub data_type: String,
     pub timestamp: String,
     pub path: String,
