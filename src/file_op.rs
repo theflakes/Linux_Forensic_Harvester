@@ -10,13 +10,14 @@ use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{Read, BufRead, BufReader};
 use std::io;
+use std::os::fd::AsRawFd;
 use std::os::unix::prelude::{PermissionsExt, MetadataExt};
 use std::path::Path;
 use path_abs::{PathAbs, PathInfo};
 use libc::{S_IRGRP, S_IROTH, S_IRUSR, // see: https://www.gnu.org/software/libc/manual/html_node/Permission-Bits.html
            S_IWGRP, S_IWOTH, S_IWUSR, 
            S_IXGRP, S_IXOTH, S_IXUSR, 
-           S_ISUID, S_ISGID, S_ISVTX};
+           S_ISUID, S_ISGID, S_ISVTX, BLKSSZGET};
 
 const MAX_FILE_SIZE: u64 = 256000000;
 
@@ -280,3 +281,13 @@ pub fn get_directory_content_counts(dir: &Path) -> io::Result<(u64, u64, u64)> {
     let hidden_count = hard_links - visible_entries - 2;
     Ok ((hard_links, visible_entries, hidden_count))
 }
+
+// pub fn get_sector_size(file: &File) -> Result<u64, Box<dyn std::error::Error>> {
+//     let fd = file.as_raw_fd();
+//     let mut sector_size: u64 = 0;
+//     let result = unsafe { libc::ioctl(fd, BLKSSZGET, &mut sector_size) };
+//     if result == -1 {
+//         return Err("Failed to get sector size".into());
+//     }
+//     Ok(sector_size)
+// }

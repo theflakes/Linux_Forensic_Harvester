@@ -13,7 +13,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH}, 
     path::{Path, PathBuf}, os::unix::prelude::{MetadataExt, PermissionsExt, FileTypeExt}, 
     fs, 
-    io::{BufReader, BufRead, self}};
+    io::{BufReader, BufRead, self, Read}};
 use memmap2::MmapOptions;
 use crate::{process_process, 
     process_file, 
@@ -149,36 +149,51 @@ fn examine_kernel_taint(tags: &mut HashSet<String>) -> io::Result<()> {
     based upon a byte by byte comparison
     See: https://sandflysecurity.com/blog/how-to-detect-and-decloak-linux-stealth-rootkit-data/
 */
-pub fn get_rootkit_hidden_file_data(file_path: &Path, size: u64) -> io::Result<HashSet<String>> {
-    let file = fs::File::open(file_path)?;
-    let contents = read_file_bytes(&file)?;
-    let size_read = contents.len() as u64;
-    // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
+pub fn get_rootkit_hidden_file_data(file_path: &Path, size_on_disk: u64) -> io::Result<HashSet<String>> {
     let mut tags: HashSet<String> = HashSet::new();
-    if size <= size_read { return Ok(tags) }
+    let mut file = fs::File::open(file_path)?;
+    let mut contents = Vec::new();
+    file.read_to_end(&mut contents)?;
+    let std_read_size = contents.len() as u64;
+    let contents_str = String::from_utf8_lossy(&contents);
+    // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
+    if size_on_disk <= std_read_size { return Ok(tags) }
+
     let mmap = unsafe { MmapOptions::new().map(&file)? };
-    let mut differences = Vec::new();
-    for (i, (a, b)) in contents.iter().zip(mmap.iter()).enumerate() {
-        if a != b {
-            differences.extend_from_slice(&mmap[i..]); // starting at the first difference found copy it and the rest of the file
-            break;
+    let mmap_read_size = mmap.len() as u64;
+    let mmap_str = std::str::from_utf8(&mmap[..]).unwrap_or_default();
+    let mmap_contents: Vec<&str> = mmap_str.lines().collect();
+
+    let mut diff = Vec::new();
+    let mut diff_bytes = Vec::new();
+    for line in mmap_contents {
+        if !contents_str.contains(&line.to_string()) {
+            diff.push(line.to_string());
+            diff_bytes.extend_from_slice(line.as_bytes());
         }
     }
-    if differences.is_empty() { return Ok(tags) }
+    if diff.is_empty() { return Ok(tags) }
+    let diff_string = format!("{:?}", diff);
     tags.insert("DataHidden".to_string());
+    let bytes = u8_to_hex_string(&diff_bytes)?;
     TxHiddenData::new(
         "File".to_string(), 
         "DataHidden".to_string(), 
         get_now()?, 
         (file_path.to_string_lossy()).into_owned(), 
-        size, size_read, sort_hashset(tags.clone())).report_log();
+        size_on_disk, 
+        std_read_size, 
+        mmap_read_size,
+        diff_string.clone(),
+        bytes.clone(),
+        sort_hashset(tags.clone())).report_log();
     TxFileContent::new(
         "Rootkit".to_string(), 
         "FileContent".to_string(), 
         get_now()?, 
         file_path.to_string_lossy().into_owned(), 
-        String::from_utf8_lossy(&differences).into_owned(), 
-        u8_to_hex_string(&differences)?, sort_hashset(tags.clone())).report_log();
+        diff_string, 
+        bytes, sort_hashset(tags.clone())).report_log();
     Ok(tags)
 }
 

@@ -407,7 +407,10 @@ pub struct TxHiddenData {
     pub timestamp: String,
     pub path: String,
     pub size: u64,
-    pub size_read: u64,
+    pub std_size_read: u64,
+    pub mmap_size_read: u64,
+    pub hidden_data_string: String,
+    pub hidden_data_hex: String,
     pub tags: Vec<String>
 }
 impl TxHiddenData {
@@ -417,7 +420,10 @@ impl TxHiddenData {
             timestamp: String,
             path: String,
             size: u64,
-            size_read: u64,
+            std_size_read: u64,
+            mmap_size_read: u64,
+            hidden_data_string: String,
+            hidden_data_hex: String,
             tags: Vec<String>) -> TxHiddenData {
         TxHiddenData {
             device_name: DEVICE_NAME.to_string(),
@@ -427,7 +433,10 @@ impl TxHiddenData {
             timestamp,
             path,
             size,
-            size_read,
+            std_size_read,
+            mmap_size_read,
+            hidden_data_string,
+            hidden_data_hex,
             tags
         }
     }

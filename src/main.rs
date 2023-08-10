@@ -277,6 +277,14 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
                    files_already_seen: &mut HashSet<String>, 
                    tags: &mut HashSet<String>, 
                    procs_already_seen: &mut HashMap<String, String> ) -> std::io::Result<()> {
+    
+    let subs = split_to_vec(root_path, "/")?;
+    let sub = match subs.iter().next_back() {
+        Some(s) => s,
+        None => ""
+    };
+    let pid = to_int32(sub)?;
+    if pid == process::id() as i32 { return Ok(()) }
     let path: String = resolve_link(&bin)?.to_string_lossy().into();
     let exists = path_exists(&path);
     let cmd = read_file_string(&push_file_path(root_path, "/cmdline")?)?;
@@ -284,12 +292,6 @@ fn process_process(pdt: &str, root_path: &str, bin: &PathBuf,
     let env = read_file_string(&push_file_path(root_path, "/environ")?)?;
     let comm = read_file_string(&push_file_path(root_path, "/comm")?)?;
     let root = resolve_link(&push_file_path(root_path, "/root")?)?;
-    let subs = split_to_vec(root_path, "/")?;
-    let sub = match subs.iter().next_back() {
-        Some(s) => s,
-        None => ""
-    };
-    let pid = to_int32(sub)?;
     let stat = split_to_vec(&read_file_string(&push_file_path(root_path, "/stat")?)?, " ")?;
     let mut ppid: i32 = 0;
     if stat.len() > 3 { ppid = to_int32(&stat[3])?; }
@@ -466,8 +468,10 @@ fn watch_file(pdt: &str, file_path: &Path, path: &str, mime_type: &str, size: u6
         if !data.is_empty() {
             tags.insert(found_paths(&data, files_already_seen)?);
             let size_read = data.len() as u64;
-            tags.extend(get_rootkit_hidden_file_data(file_path, size)?);
-            if size_read < ARGS.flag_max { tags.extend(run_hunts(pdt, path, &data)?) };
+            if size_read < ARGS.flag_max { 
+                tags.extend(run_hunts(pdt, path, &data)?);
+                tags.extend(get_rootkit_hidden_file_data(file_path, size)?);
+            }
         }
     }
     Ok(tags)
