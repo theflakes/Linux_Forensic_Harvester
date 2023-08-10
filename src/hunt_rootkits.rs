@@ -155,7 +155,6 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size_on_disk: u64) -> io::
     let mut contents = Vec::new();
     file.read_to_end(&mut contents)?;
     let std_read_size = contents.len() as u64;
-    let contents_str = String::from_utf8_lossy(&contents);
     // if file size on disk is larger than file size read, there may be a root kit hiding data in the file
     if size_on_disk <= std_read_size { return Ok(tags) }
 
@@ -166,6 +165,7 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size_on_disk: u64) -> io::
 
     let mut diff = Vec::new();
     let mut diff_bytes = Vec::new();
+    let contents_str = String::from_utf8_lossy(&contents);
     for line in mmap_contents {
         if !contents_str.contains(&line.to_string()) {
             diff.push(line.to_string());
