@@ -178,7 +178,7 @@ pub fn found_shell(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool
     lazy_static! {
         static ref SHELL: Regex = Regex::new(r#"(?mix)
             (:?.*
-                (?:[|\s'"><&\\]|^)(?:(?:b?a|t?c|fi|[ak])?sh)(?:[|\s'"><&]|$)
+                (?:[|\s'"><&\\]|^)(?:(?:b?a|t?c|fi|[akz])?sh)(?:[|\s'"><&]|$)
             .*)                                                                  
         "#).expect("Invalid Regex");
     }
