@@ -156,7 +156,7 @@ Information gathered on:
 - Possible rookit
   - Data type: `Rootkit`
 - Processes (via procfs)
-  - Data type: Process
+  - Data type: `Process`
   - Process file (file of the process on disk)
   - Process' open files
     - Data type: `ProcessOpenFile`
