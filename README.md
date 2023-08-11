@@ -104,6 +104,7 @@ cargo build --release
 * ~~Setuid / setgid~~
 * Traps
 * Document parent and child data type relation
+* Add more interesting strings / commands to search for in file contents specific to Linux
 * ...
 
 ## Output format
@@ -113,6 +114,9 @@ Output is in Json for import into ELK or any other Json indexer. I may add other
 No configuration files are currently included. Everything is compiled in to acheive easier remote use of the tool. Just copy file to host and run. Pipe / redirect the output with standard Linux tools. At some point I will probably add a network send option.
 
 ## About the logs
+- `parent_data_type` - if a log was generated due to something found in another log this field will hold the `data_type` of the parent log that caused this log to be generated (e.g. file path was found in a file's content and therefore the tool went and gathered metadata on that file referenced in the first file's content)
+- `data_type` - the source of telemetry the log is reporting on
+- `tags` - tags are added to this array field when something interesting is found by a built-in hunt
 Anything of interest (a hunt, e.g. for rootkits or interesting stings/content) will be noted in the `tags` field.  
 
 Information gathered on:
