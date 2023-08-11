@@ -611,6 +611,7 @@ fn is_root() {
     if Uid::effective().is_root() {
         return;
     }
+    println!("{}", USAGE);
     println!("\nMust be run as root\n");
     exit(1);
 }
@@ -633,7 +634,7 @@ fn main() -> std::io::Result<()> {
     }
 
     if ARGS.flag_suidsgid {
-        find_suid_sgid(&mut files_already_seen)?; 
+        find_suid_sgid(&mut files_already_seen)?;
     }
 
     if ARGS.flag_forensics {
