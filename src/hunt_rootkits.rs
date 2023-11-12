@@ -209,6 +209,7 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
     let expected: HashMap<String, i32> = [
         ("/bin/bash".to_string(), 1),
         ("/bin/dash".to_string(), 1),
+        ("/init".to_string(), 1),
         ("/usr/bin/bash".to_string(), 1),
         ("/usr/bin/perl".to_string(), 1),
         ("/usr/bin/udevadm".to_string(), 1),
@@ -591,6 +592,7 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
         (202, "msr"),
         (203, "cpu"),
         (226, "dri"),
+        (229, "hvc"),
         (246, "ptp"),
         (247, "pps"),
         (509, "media"),
@@ -607,6 +609,8 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
         ("mei", 1),
         ("ngn", 1),
         ("nvme", 1),
+        ("ptp", 1),
+        ("ptp_hyperv", 1),
         ("rtc", 1),
         ("watchdog", 1),
         ("tpmrm", 1)
@@ -627,7 +631,7 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
         if path.metadata()?.file_type().is_char_device() {
             let hex = path.metadata()?.rdev();
             let major = hex >> 8;
-            let pattern = path.strip_prefix("/dev/")
+            let mut pattern = path.strip_prefix("/dev/")
                                 .unwrap().to_str().unwrap_or_default()
                                 .replace(|c: char| c.is_numeric(), "");
 
