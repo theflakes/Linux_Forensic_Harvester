@@ -509,7 +509,7 @@ pub fn process_file(mut pdt: &str, file_path: &Path, files_already_seen: &mut Ha
         if is_sgid { tags.insert("Sgid".to_string()); }
         let (md5, mime_type) = get_file_content_info(&file)?;
         // certain files we want to parse explicitely
-        let orig_path = file_path.clone();
+        let orig_path = file_path;
         let path = file_path.to_string_lossy();
         if pdt.is_empty() { pdt = &"File" }
         match path.as_ref() {
