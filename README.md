@@ -69,7 +69,7 @@ Options:
                             - Tag: HexHunt
 
 Note:
-  If not run as root some telemetry cannot be harvested.
+  Must be run as root.
 
   A log with data_type of 'Rootkit' will be generated if the size of file read into
   memory is less that the size on disk. This is a simple possible root kit identification

@@ -272,13 +272,13 @@ pub fn find_files_with_permissions(start: &Path, permissions: u32,
     Ok(())
 }
 
-pub fn get_directory_content_counts(dir: &Path) -> io::Result<(u64, u64, u64)> {
+pub fn get_directory_content_counts(dir: &Path) -> io::Result<(i128, i128, i128)> {
     let metadata = fs::metadata(dir)?;
-    let hard_links = metadata.nlink();
+    let hard_links: i128 = metadata.nlink() as i128;
     let visible_entries = fs::read_dir(dir)?
         .filter(|entry| entry.is_ok())
-        .count() as u64;
-    let hidden_count = hard_links - visible_entries - 2;
+        .count() as i128;
+    let hidden_count: i128 = hard_links - visible_entries - 2;
     Ok ((hard_links, visible_entries, hidden_count))
 }
 

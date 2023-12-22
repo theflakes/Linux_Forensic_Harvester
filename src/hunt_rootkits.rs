@@ -19,7 +19,7 @@ use crate::{process_process,
     process_file, 
     data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts, TxCharDevice, sleep}, 
     time::{get_now, get_epoch_start}, 
-    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts, parse_permissions}, 
+    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts, parse_permissions, resolve_link}, 
         mutate::{to_u128, to_int32, push_file_path, format_date}};
 
 
@@ -375,6 +375,10 @@ fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
 fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
                             procs_already_seen: &mut HashMap<String, String>, 
                             tags: &mut HashSet<String>) -> io::Result<()> {
+    const FALSE_POSITIVES: [&str; 2] = [
+        "/usr/sbin/NetworkManager",
+        "/usr/sbin/wpa_supplicant"
+    ];
     let packet = fs::read_to_string("/proc/net/packet")?;
     let inodes: Vec<String> = packet
         .lines()
@@ -403,6 +407,7 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
         let pid = proc[0].file_name().unwrap_or_default().to_string_lossy();
         let path = Path::new(&format!("/proc/{}", pid)).to_owned();
         let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
+        if FALSE_POSITIVES.contains(&resolve_link(&exe)?.to_string_lossy().as_ref()) { continue }
         process_process(&pdt, &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
         for line in packet.lines() {
@@ -420,6 +425,9 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
 fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
                     procs_already_seen: &mut HashMap<String, String>, 
                     tags: &mut HashSet<String>) -> io::Result<()> {
+    const FALSE_POSITIVES: [&str; 1] = [
+        "/usr/bin/pipewire"
+    ];
     let mut pids = Vec::new();
     let self_pid = std::process::id().to_string();
     for entry in fs::read_dir("/proc")? {
@@ -442,6 +450,7 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
     for pid in pids {
         let path = Path::new(&format!("/proc/{}", pid)).to_owned();
         let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
+        if FALSE_POSITIVES.contains(&resolve_link(&exe)?.to_string_lossy().as_ref()) { continue }
         process_process(&dt, &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
         let fd = format!("/proc/{}/fd", pid);
@@ -605,6 +614,7 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
         ("dma_heap/system", 1),
         ("gpiochip", 1),
         ("hidraw", 1),
+        ("iio:device", 1),
         ("media", 1),
         ("mei", 1),
         ("ngn", 1),
@@ -622,6 +632,15 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
         ("hidraw", 1),
         ("media", 1),
         ("mei", 1),
+        ("nvidia-uvm", 1),
+        ("nvidia-uvm-tools", 1),
+        ("tpmrm", 1)
+    ].iter().cloned().collect();
+
+    let unknown: HashMap<&str, u32> = [
+        ("nvidia", 1),
+        ("nvidiactl", 1),
+        ("nvidia-modeset", 1),
         ("tpmrm", 1)
     ].iter().cloned().collect();
 
@@ -639,17 +658,18 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
             if expected_major.contains_key(&major) { continue; }
 
             let mut class = String::from("UNKNOWN");
+            if unknown.contains_key(pattern.as_str()) { continue; }
             if major >= 60 && major <= 63 || major >= 120 && major <= 127 {
                 class = String::from("LOCAL/EXPERIMENTAL");
             }
             if major >= 234 && major <= 254 {
-                class = String::from("low dynamic");
                 if expected_low.contains_key(pattern.as_str()) { continue; }
                 if expected_high.contains_key(pattern.as_str()) { continue; }
+                class = String::from("low dynamic");
             }
             if major >= 384 && major <= 511 {
-                class = String::from("high dynamic");
                 if expected_high.contains_key(pattern.as_str()) { continue; }
+                class = String::from("high dynamic");
             }
             let md = fs::metadata(&path)?;
             let permissions = parse_permissions(md.mode());

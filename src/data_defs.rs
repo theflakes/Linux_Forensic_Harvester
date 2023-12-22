@@ -96,7 +96,7 @@ Options:
                             - Tag: HexHunt
 
 Note:
-  If not run as root some telemetry cannot be harvested.
+  Must be run as root.
 
   A log with data_type of 'Rootkit' will be generated if the size of file read into
   memory is less that the size on disk. This is a simple possible root kit identification
@@ -1022,9 +1022,9 @@ pub struct TxDirContentCounts {
     pub data_type: String,
     pub timestamp: String,
     pub path: String,
-    pub hard_link_count: u64,
-    pub visible_count: u64,
-    pub hidden_count: u64,
+    pub hard_link_count: i128,
+    pub visible_count: i128,
+    pub hidden_count: i128,
     pub tags: Vec<String>
 }
 impl TxDirContentCounts {
@@ -1033,9 +1033,9 @@ impl TxDirContentCounts {
             data_type: String,
             timestamp: String,
             path: String,
-            hard_link_count: u64,
-            visible_count: u64,
-            hidden_count: u64,
+            hard_link_count: i128,
+            visible_count: i128,
+            hidden_count: i128,
             tags: Vec<String>) -> TxDirContentCounts {
         TxDirContentCounts {
             device_name: DEVICE_NAME.to_string(),

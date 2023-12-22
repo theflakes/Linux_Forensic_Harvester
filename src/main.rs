@@ -596,7 +596,7 @@ fn find_suid_sgid(files_already_seen: &mut HashSet<String>) -> std::io::Result<(
 */
 fn find_hidden_directory_contents(dir: &str) -> std::io::Result<()> {
     let (hard_links, visible_entries, hidden_count) = get_directory_content_counts(Path::new(dir))?;
-    if hard_links <= visible_entries + 2 { return Ok(()) }
+    if hidden_count <= 0 { return Ok(()) }
     let pdt = "Rootkit".to_string();
     let mut tags: HashSet<String> = HashSet::new();
     tags.insert("DirContentsHidden".to_string());
