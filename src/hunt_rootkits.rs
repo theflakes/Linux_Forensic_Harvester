@@ -15,11 +15,12 @@ use std::{
     fs, 
     io::{BufReader, BufRead, self, Read}};
 use memmap2::MmapOptions;
+use path_abs::PathOps;
 use crate::{process_process, 
     process_file, 
     data_defs::{TxKernelTaint, TxHiddenData, TxFileContent, sort_hashset, TxProcessMaps, TxGeneral, TxDirContentCounts, TxCharDevice, sleep}, 
     time::{get_now, get_epoch_start}, 
-    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts, parse_permissions, resolve_link}, 
+    file_op::{read_file_bytes, u8_to_hex_string, find_files_with_permissions, get_directory_content_counts, parse_permissions, resolve_link, read_file_string}, 
         mutate::{to_u128, to_int32, push_file_path, format_date}};
 
 
@@ -197,6 +198,13 @@ pub fn get_rootkit_hidden_file_data(file_path: &Path, size_on_disk: u64) -> io::
     Ok(tags)
 }
 
+fn starts_with_any(path: &PathBuf, prefixes: &[&str]) -> bool {
+    let path_as_os_str = path.to_string_lossy();
+    prefixes.iter().any(|&prefix| {
+        path_as_os_str.starts_with(prefix)
+    })
+}
+
 /*
     This function needs work to remove unwraps.
 
@@ -225,6 +233,9 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
     .iter()
     .cloned()
     .collect();
+    let prefixes = [
+        "/.local/share/Steam/steamapps/common/Proton"
+    ];
     let proc_dir = Path::new("/proc");
     if !proc_dir.exists() { return Ok(()) }
 
@@ -235,6 +246,7 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
         if !exe_path.exists() || base_path.to_str().unwrap().contains("self") { continue; }
 
         let path = fs::read_link(&exe_path)?;
+        if starts_with_any(&path, &prefixes) { continue; }
         let name = fs::read_to_string(base_path.join("comm"))?;
         let short_name: String = name.trim()
             .split(|c| c == '-' || c == ':' || c == ' ')
@@ -242,10 +254,8 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
             .ok_or(io::Error::new(io::ErrorKind::InvalidData, "Invalid short name"))?
             .to_string();
         let short_base: String = base_path.to_str().unwrap().chars().take(5).collect();
-
-        if path.to_str().unwrap().contains(&short_name) || name.trim().contains(&short_base) {
-            continue;
-        }
+        if path.to_str().unwrap().contains(&short_name) 
+            || name.trim().contains(&short_base) { continue; }
 
         let pattern: String = path
             .to_str()
@@ -425,8 +435,12 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
 fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
                     procs_already_seen: &mut HashMap<String, String>, 
                     tags: &mut HashSet<String>) -> io::Result<()> {
-    const FALSE_POSITIVES: [&str; 1] = [
-        "/usr/bin/pipewire"
+    const PROC_FALSE_POSITIVES: [&str; 2] = [
+        "/usr/bin/pipewire",
+        "/usr/bin/gnome-shell"
+    ];
+    const CMD_FALSE_POSITIVES: [&str; 1] = [
+        "C:\\windows\\system32\\services.exe"
     ];
     let mut pids = Vec::new();
     let self_pid = std::process::id().to_string();
@@ -450,7 +464,10 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
     for pid in pids {
         let path = Path::new(&format!("/proc/{}", pid)).to_owned();
         let exe = Path::new(&format!("/proc/{}/exe", pid)).to_owned();
-        if FALSE_POSITIVES.contains(&resolve_link(&exe)?.to_string_lossy().as_ref()) { continue }
+        if PROC_FALSE_POSITIVES.contains(&resolve_link(&exe)?.to_string_lossy().as_ref()) { continue }
+        let cmd = path.join("cmdline");
+        let cmdline: &str = &read_file_string(&cmd)?;
+        if CMD_FALSE_POSITIVES.contains(&cmdline) { continue; }
         process_process(&dt, &path.to_string_lossy(), &exe, 
                         files_already_seen, tags, procs_already_seen)?;
         let fd = format!("/proc/{}/fd", pid);
@@ -484,6 +501,17 @@ fn find_odd_run_locks(files_already_seen: &mut HashSet<String>,
 fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
                         procs_already_seen: &mut HashMap<String, String>, 
                         tags: &mut HashSet<String>) -> io::Result<()> {
+    // Steam and Proton create a lot of noise
+    const CMD_FALSE_POSITIVES: [&str; 5] = [
+        "C:\\windows\\system32\\services.exe",
+        "C:\\windows\\system32\\plugplay.exe",
+        "C:\\windows\\system32\\svchost.exe -k LocalServiceNetworkRestricted",
+        "C:\\windows\\system32\\rpcss.exe",
+        "C:\\windows\\system32\\winedevice.exe"
+    ];
+    const CMD_FALSE_POSITIVES_CONTAINS: [&str; 1] = [
+        "--database=C:\\users\\steamuser\\AppData\\Local\\"
+    ];
     for entry in fs::read_dir("/proc")? {
         let entry = entry?;
         let path = entry.path();
@@ -500,6 +528,10 @@ fn find_proc_takeover(files_already_seen: &mut HashSet<String>,
             || init.unwrap_or_default().contains(&exe) {
             continue;
         }
+        let cmd = path.join("cmdline");
+        let cmdline: &str = &read_file_string(&cmd)?;
+        if CMD_FALSE_POSITIVES.contains(&cmdline)
+            || CMD_FALSE_POSITIVES_CONTAINS.iter().any(|&s| cmdline.contains(s)) { continue; }
         let dev = init.unwrap_or_default().split_whitespace().nth(3).unwrap_or_default();
         let inode = init.unwrap_or_default().split_whitespace().nth(4).unwrap_or_default();
         if dev != "00:00" || inode != "0" { continue; }
