@@ -42,7 +42,23 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 
-// file paths we want to watch all files in
+/*
+    file paths we want to watch all files in
+
+    KDE Autostart Locations:
+        $HOME/.kde/Autostart
+        $HOME/.config/autostart
+        $HOME/.config/plasma-workspace/env
+        $HOME/.config/plasma-workspace/shutdown
+    Gnome Autostart Locations:
+        ~/.config/autostart
+    Misc. Autostart Locations:
+        /etc/xdg/autostart
+        /var/spool/cron
+    Services:
+        /etc/init.d
+        /etc/systemd
+*/ 
 const WATCH_PATHS: [&str; 14] = [
     "/etc",
     "/home",
