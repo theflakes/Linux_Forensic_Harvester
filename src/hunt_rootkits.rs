@@ -215,6 +215,7 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
                     procs_already_seen: &mut HashMap<String, String>,
                     tags: &mut HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
     let expected: HashMap<String, i32> = [
+        ("/app/lib/firefox/firefox-bin".to_string(), 1),
         ("/bin/bash".to_string(), 1),
         ("/bin/dash".to_string(), 1),
         ("/init".to_string(), 1),
