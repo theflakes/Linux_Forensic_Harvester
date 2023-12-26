@@ -47,7 +47,7 @@ Options:
     -p, --port <port>       Destination port to send output to [default: 80]
   Time window:
     This option will compare the specified date window to the file's 
-    ctime, atime, or mtime and only output logs where the one of the dates falls 
+    ctime, atime, or mtime and only output logs where one of the dates falls 
     within that window. Window start is inclusive, window end is exclusive.
     --start <UTC_start_time>    Start of time window: [default: 0000-01-01T00:00:00]
                                 - format: YYYY-MM-DDTHH:MM:SS
