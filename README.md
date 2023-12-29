@@ -5,6 +5,7 @@ This tool will produce a considerable amount of Json logs.
 
 If you just want to run it, download the "lin_fh" binary.
 
+This tool's output is meant to be used by forensic practioners to investigate suspicious events on live Linux systems.
 ```
 Linux Forensic Harvester
     Author: Brian Kellogg
