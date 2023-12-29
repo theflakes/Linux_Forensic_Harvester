@@ -6,6 +6,23 @@ This tool will produce a considerable amount of Json logs.
 If you just want to run it, download the "lin_fh" binary.
 
 This tool's output is meant to be used by forensic practioners to investigate suspicious events on live Linux systems.
+
+Directories of Interest;
+```
+KDE Autostart Locations:
+    $HOME/.kde/Autostart
+    $HOME/.config/autostart
+    $HOME/.config/plasma-workspace/env
+    $HOME/.config/plasma-workspace/shutdown
+Gnome Autostart Locations:
+    ~/.config/autostart
+Misc. Autostart Locations:
+    /etc/xdg/autostart
+    /var/spool/cron
+Services:
+    /etc/init.d
+    /etc/systemd
+```
 ```
 Linux Forensic Harvester
     Author: Brian Kellogg
