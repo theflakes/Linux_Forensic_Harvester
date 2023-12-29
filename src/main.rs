@@ -45,19 +45,21 @@ use std::io::{BufRead, BufReader};
 /*
     file paths we want to watch all files in
 
+    Gnome Autostart Locations:
+        ~/.config/autostart
     KDE Autostart Locations:
         $HOME/.kde/Autostart
         $HOME/.config/autostart
         $HOME/.config/plasma-workspace/env
         $HOME/.config/plasma-workspace/shutdown
-    Gnome Autostart Locations:
-        ~/.config/autostart
     Misc. Autostart Locations:
         /etc/xdg/autostart
         /var/spool/cron
     Services:
         /etc/init.d
         /etc/systemd
+    User cron jobs:
+        /var/spool/cron/crontabs
 */ 
 const WATCH_PATHS: [&str; 14] = [
     "/etc",
