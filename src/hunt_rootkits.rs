@@ -387,10 +387,12 @@ fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
 fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
                             procs_already_seen: &mut HashMap<String, String>, 
                             tags: &mut HashSet<String>) -> io::Result<()> {
-    const FALSE_POSITIVES: [&str; 3] = [
+    const FALSE_POSITIVES: [&str; 5] = [
         "/usr/sbin/NetworkManager",
         "/usr/sbin/wpa_supplicant",
-        "/usr/lib/systemd/systemd-networkd"
+        "/usr/lib/systemd/systemd-networkd",
+        "/opt/sysmon/sysmon (deleted)",
+        "/opt/sysmon/sysmon"
     ];
     let packet = fs::read_to_string("/proc/net/packet")?;
     let inodes: Vec<String> = packet
