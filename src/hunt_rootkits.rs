@@ -390,7 +390,7 @@ fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
     const FALSE_POSITIVES: [&str; 3] = [
         "/usr/sbin/NetworkManager",
         "/usr/sbin/wpa_supplicant",
-        "/usr/lib/systremd/systemd-networkd"
+        "/usr/lib/systemd/systemd-networkd"
     ];
     let packet = fs::read_to_string("/proc/net/packet")?;
     let inodes: Vec<String> = packet
