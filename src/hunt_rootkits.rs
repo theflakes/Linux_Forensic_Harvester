@@ -235,7 +235,8 @@ fn find_proc_mimics(mut files_already_seen: &mut HashSet<String>,
     .cloned()
     .collect();
     let prefixes = [
-        "/.local/share/Steam/steamapps/common/Proton"
+        "/.local/share/Steam/steamapps/common/Proton",
+        "/snap/"
     ];
     let proc_dir = Path::new("/proc");
     if !proc_dir.exists() { return Ok(()) }
@@ -386,9 +387,10 @@ fn find_hidden_sys_modules(files_already_seen: &mut HashSet<String>,
 fn find_raw_packet_sniffer(files_already_seen: &mut HashSet<String>,
                             procs_already_seen: &mut HashMap<String, String>, 
                             tags: &mut HashSet<String>) -> io::Result<()> {
-    const FALSE_POSITIVES: [&str; 2] = [
+    const FALSE_POSITIVES: [&str; 3] = [
         "/usr/sbin/NetworkManager",
-        "/usr/sbin/wpa_supplicant"
+        "/usr/sbin/wpa_supplicant",
+        "/usr/lib/systremd/systemd-networkd"
     ];
     let packet = fs::read_to_string("/proc/net/packet")?;
     let inodes: Vec<String> = packet
