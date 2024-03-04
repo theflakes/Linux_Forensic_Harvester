@@ -190,6 +190,7 @@ Information gathered on:
   - Data type: `LocalUser`
 
 ## Rootkit detection techniques
+NOTE: Live machine analysis for rootkits is not entirely reliable. Well written rootkits will probably not be able to be discovered reliably with live machine forensics.
 - Any logs generated due to a rootkit hunt will have `Rootkit` set as their `parent_data_type`
 - File data that is found in memory mapped read files not found via a standard file read
   - Tag: `DataHidden`
