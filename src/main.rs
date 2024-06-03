@@ -58,6 +58,7 @@ use std::io::{BufRead, BufReader};
     Services:
         /etc/init.d
         /etc/systemd
+        $HOME/.config/systemd/user
     User cron jobs:
         /var/spool/cron/crontabs
 */ 
