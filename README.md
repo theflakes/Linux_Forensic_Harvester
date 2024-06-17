@@ -21,6 +21,9 @@ Services:
   /etc/init.d
   /etc/systemd
   $HOME/.config/systemd/user
+Udev rules:
+  /usr/lib/udev/rules.d
+  /usr/local/lib/udev/rules.d
 User cron jobs:
   /var/spool/cron/crontabs
 ```
