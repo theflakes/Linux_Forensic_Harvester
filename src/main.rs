@@ -59,10 +59,13 @@ use std::io::{BufRead, BufReader};
         /etc/init.d
         /etc/systemd
         $HOME/.config/systemd/user
+    Udev rules: 
+        /usr/lib/udev/rules.d
+        /usr/local/lib/udev/rules.d
     User cron jobs:
         /var/spool/cron/crontabs
 */ 
-const WATCH_PATHS: [&str; 14] = [
+const WATCH_PATHS: [&str; 16] = [
     "/etc",
     "/home",
     "/lib/modules",
@@ -71,6 +74,8 @@ const WATCH_PATHS: [&str; 14] = [
     "/srv",
     "/tmp",
     "/usr/lib/systemd/system",
+    "/usr/lib/udev/rules.d",
+    "/usr/local/lib/udev/rules.d",
     "/usr/local/var/www/html",
     "/usr/share/nginx/html",
     "/usr/share/nginx/www",
