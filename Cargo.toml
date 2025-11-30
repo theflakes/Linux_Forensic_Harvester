@@ -1,6 +1,6 @@
 [package]
 name = "lin_fh"
-version = "0.8.2"
+version = "0.9.0"
 authors = ["brian kellogg <theflakes@gmail.com>"]
 edition = "2021"
 
