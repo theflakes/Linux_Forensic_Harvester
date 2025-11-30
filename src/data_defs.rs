@@ -1,24 +1,27 @@
-extern crate serde;             // needed for json serialization
-extern crate serde_derive;      // needed for json serialization
-extern crate serde_json;        // needed for json serialization
+extern crate chrono;
 extern crate docopt;
 extern crate nix;
-extern crate chrono;
+extern crate serde; // needed for json serialization
+extern crate serde_derive; // needed for json serialization
+extern crate serde_json; // needed for json serialization
 
 use crate::mutate::hex_to_bytes;
 
 use chrono::*;
+use docopt::Docopt;
+use hostname::*;
+use regex::Regex;
 use serde::Serialize;
 use serde_derive::Deserialize;
-use std::{io::prelude::Write, collections::HashSet, env, process::Command};
-use docopt::Docopt;
 use std::thread;
-use regex::Regex;
-use hostname::*;
+use std::{collections::HashSet, env, io::prelude::Write, process::Command};
 
 lazy_static! {
-    pub static ref DEVICE_NAME: String = hostname::get().unwrap_or_default()
-                                        .to_string_lossy().to_owned().to_string();
+    pub static ref DEVICE_NAME: String = hostname::get()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_owned()
+        .to_string();
     pub static ref DEVICE_IP: String = get_ip();
 }
 
@@ -29,15 +32,18 @@ fn get_ip() -> String {
         .output()
         .expect("");
 
-    std::str::from_utf8(&output.stdout).unwrap().trim().to_string()
+    std::str::from_utf8(&output.stdout)
+        .unwrap()
+        .trim()
+        .to_string()
 }
 
 pub const USAGE: &'static str = "
 Linux Forensic Harvester
     Author: Brian Kellogg
     License: MIT
-    Disclaimer: 
-        This tool comes with no warranty or support. 
+    Disclaimer:
+        This tool comes with no warranty or support.
         If anyone chooses to use it, you accept all responsibility and liability.
 
 Must be run as root.
@@ -73,8 +79,8 @@ Options:
     -i, --ip <ip>           IP address to send output to [default: NONE]
     -p, --port <port>       Destination port to send output to [default: 80]
   Time window:
-    This option will compare the specified date window to the file's 
-    ctime, atime, or mtime and only output logs where one of the dates falls 
+    This option will compare the specified date window to the file's
+    ctime, atime, or mtime and only output logs where one of the dates falls
     within that window. Window start is inclusive, window end is exclusive.
     --start <UTC_start_time>    Start of time window: [default: 0000-01-01T00:00:00]
                                 - format: YYYY-MM-DDTHH:MM:SS
@@ -102,7 +108,7 @@ Note:
   memory is less that the size on disk. This is a simple possible root kit identification
   method.
   - See: https://github.com/sandflysecurity/sandfly-file-decloak
-  
+
   To capture network output, start a netcat listener on your port of choice.
   Use the -k option with netcat to prevent netcat from closing after a TCP connection is closed.
 
@@ -129,14 +135,20 @@ pub struct Args {
     pub flag_end: String,
 }
 
-lazy_static! { 
+lazy_static! {
     pub static ref ARGS: Args = Docopt::new(USAGE)
-                    .and_then(|d| d.deserialize())
-                    .unwrap_or_else(|e| e.exit());
-                
-    pub static ref CUSTOM_REGEX: Regex = Regex::new(&format!(r"{}{}", "(?mi)".to_string(), ARGS.flag_regex)).expect("Invalid Regex");
-    pub static ref TIME_START: DateTime<Utc> = Utc.datetime_from_str(&ARGS.flag_start, "%Y-%m-%dT%H:%M:%S").expect("Invalid start time!!!");
-    pub static ref TIME_END: DateTime<Utc> = Utc.datetime_from_str(&ARGS.flag_end, "%Y-%m-%dT%H:%M:%S").expect("Invalid end time!!!");
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
+    pub static ref CUSTOM_REGEX: Regex =
+        Regex::new(&format!(r"{}{}", "(?mi)".to_string(), ARGS.flag_regex)).expect("Invalid Regex");
+    pub static ref TIME_START: DateTime<Utc> =
+        NaiveDateTime::parse_from_str(&ARGS.flag_start, "%Y-%m-%dT%H:%M:%S")
+            .expect("Failed to parse start time")
+            .and_utc();
+    pub static ref TIME_END: DateTime<Utc> =
+        NaiveDateTime::parse_from_str(&ARGS.flag_end, "%Y-%m-%dT%H:%M:%S")
+            .expect("Failed to parse end time")
+            .and_utc();
     pub static ref FIND_HEX: Vec<u8> = hex_to_bytes(&ARGS.flag_hex).expect("Invalid hex string!!!");
 }
 
@@ -150,38 +162,35 @@ pub fn sort_hashset(mut tags: HashSet<String>) -> Vec<String> {
     tags.remove("");
     let mut vec: Vec<String> = tags.into_iter().collect();
     vec.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
-    return vec
+    return vec;
 }
 
 /*
-    Help provided by Yandros on using traits: 
+    Help provided by Yandros on using traits:
         https://users.rust-lang.org/t/refactor-struct-fn-with-macro/40093
 */
 type Str = ::std::borrow::Cow<'static, str>;
-trait Loggable : Serialize {
+trait Loggable: Serialize {
     /// convert struct to json
-    fn to_log (self: &'_ Self) -> Str
-    {
+    fn to_log(self: &'_ Self) -> Str {
         ::serde_json::to_string(&self)
             .ok()
             .map_or("<failed to serialize>".into(), Into::into)
     }
-    
+
     /// convert struct to json and report it out
-    fn write_log (self: &'_ Self)
-    {
+    fn write_log(self: &'_ Self) {
         if !ARGS.flag_ip.eq("NONE") {
             let socket = format!("{}:{}", ARGS.flag_ip, ARGS.flag_port);
-            let mut stream = ::std::net::TcpStream::connect(socket)
-                .expect("Could not connect to server");
-            writeln!(stream, "{}", self.to_log())
-                .expect("Failed to write to server");
+            let mut stream =
+                ::std::net::TcpStream::connect(socket).expect("Could not connect to server");
+            writeln!(stream, "{}", self.to_log()).expect("Failed to write to server");
         } else {
             println!("{}", self.to_log());
         }
     }
 }
-impl<T : ?Sized + Serialize> Loggable for T {}
+impl<T: ?Sized + Serialize> Loggable for T {}
 
 #[derive(Serialize)]
 pub struct TxGeneral {
@@ -191,15 +200,16 @@ pub struct TxGeneral {
     pub data_type: String,
     pub timestamp: String,
     pub info: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxGeneral {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            info: String,
-            tags: Vec<String>) -> TxGeneral {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        info: String,
+        tags: Vec<String>,
+    ) -> TxGeneral {
         TxGeneral {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -207,7 +217,7 @@ impl TxGeneral {
             data_type,
             timestamp,
             info,
-            tags
+            tags,
         }
     }
 
@@ -232,28 +242,29 @@ pub struct TxCharDevice {
     pub uid: u32,
     pub gid: u32,
     pub inode: u64,
-    pub last_access_time: String, 
+    pub last_access_time: String,
     pub last_write_time: String,
     pub creation_time: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxCharDevice {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            class: String,
-            pattern: String,
-            major: u64,
-            permissions: String,
-            uid: u32,
-            gid: u32,
-            inode: u64,
-            last_access_time: String, 
-            last_write_time: String,
-            creation_time: String,
-            tags: Vec<String>) -> TxCharDevice {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        class: String,
+        pattern: String,
+        major: u64,
+        permissions: String,
+        uid: u32,
+        gid: u32,
+        inode: u64,
+        last_access_time: String,
+        last_write_time: String,
+        creation_time: String,
+        tags: Vec<String>,
+    ) -> TxCharDevice {
         TxCharDevice {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -268,10 +279,10 @@ impl TxCharDevice {
             uid,
             gid,
             inode,
-            last_access_time, 
+            last_access_time,
             last_write_time,
             creation_time,
-            tags
+            tags,
         }
     }
 
@@ -289,10 +300,10 @@ pub struct TxFile {
     pub parent_data_type: String,
     pub data_type: String,
     pub timestamp: String,
-    pub path: String, 
-    pub md5: String, 
+    pub path: String,
+    pub md5: String,
     pub mime_type: String,
-    pub last_access_time: String, 
+    pub last_access_time: String,
     pub last_write_time: String,
     pub creation_time: String,
     pub size: u64,
@@ -306,23 +317,24 @@ pub struct TxFile {
 }
 impl TxFile {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            md5: String, 
-            mime_type: String,
-            last_access_time: String, 
-            last_write_time: String,
-            creation_time: String,
-            size: u64,
-            hidden: bool,
-            uid: u32,
-            gid: u32,
-            nlink: u64,
-            inode: u64,
-            permissions: String,
-            tags: Vec<String>,) -> TxFile {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        md5: String,
+        mime_type: String,
+        last_access_time: String,
+        last_write_time: String,
+        creation_time: String,
+        size: u64,
+        hidden: bool,
+        uid: u32,
+        gid: u32,
+        nlink: u64,
+        inode: u64,
+        permissions: String,
+        tags: Vec<String>,
+    ) -> TxFile {
         TxFile {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -342,7 +354,7 @@ impl TxFile {
             nlink,
             inode,
             permissions,
-            tags
+            tags,
         }
     }
 
@@ -365,17 +377,18 @@ pub struct TxFileContent {
     pub path: String,
     pub line: String,
     pub bytes: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxFileContent {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            line: String,
-            bytes: String,
-            tags: Vec<String>,) -> TxFileContent {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        line: String,
+        bytes: String,
+        tags: Vec<String>,
+    ) -> TxFileContent {
         TxFileContent {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -385,7 +398,7 @@ impl TxFileContent {
             path,
             line,
             bytes,
-            tags
+            tags,
         }
     }
 
@@ -411,20 +424,21 @@ pub struct TxHiddenData {
     pub mmap_size_read: u64,
     pub hidden_data_string: String,
     pub hidden_data_hex: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxHiddenData {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            size: u64,
-            std_size_read: u64,
-            mmap_size_read: u64,
-            hidden_data_string: String,
-            hidden_data_hex: String,
-            tags: Vec<String>) -> TxHiddenData {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        size: u64,
+        std_size_read: u64,
+        mmap_size_read: u64,
+        hidden_data_string: String,
+        hidden_data_hex: String,
+        tags: Vec<String>,
+    ) -> TxHiddenData {
         TxHiddenData {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -437,7 +451,7 @@ impl TxHiddenData {
             mmap_size_read,
             hidden_data_string,
             hidden_data_hex,
-            tags
+            tags,
         }
     }
 
@@ -459,17 +473,18 @@ pub struct TxKernelTaint {
     is_tainted: bool,
     pub taint_value: u32,
     pub info: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxKernelTaint {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            is_tainted: bool,
-            taint_value: u32,
-            info: String,
-            tags: Vec<String>) -> TxKernelTaint {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        is_tainted: bool,
+        taint_value: u32,
+        info: String,
+        tags: Vec<String>,
+    ) -> TxKernelTaint {
         TxKernelTaint {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -479,7 +494,7 @@ impl TxKernelTaint {
             is_tainted,
             taint_value,
             info,
-            tags
+            tags,
         }
     }
 
@@ -507,22 +522,23 @@ pub struct TxLink {
     pub size: u64,
     pub hidden: bool,
     pub target_exists: bool,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxLink {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            target_path: String,
-            last_access_time: String, 
-            last_write_time: String,
-            creation_time: String,
-            size: u64,
-            hidden: bool,
-            target_exists: bool,
-            tags: Vec<String>) -> TxLink {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        target_path: String,
+        last_access_time: String,
+        last_write_time: String,
+        creation_time: String,
+        size: u64,
+        hidden: bool,
+        target_exists: bool,
+        tags: Vec<String>,
+    ) -> TxLink {
         TxLink {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -537,7 +553,7 @@ impl TxLink {
             size,
             hidden,
             target_exists,
-            tags
+            tags,
         }
     }
 
@@ -565,23 +581,24 @@ pub struct TxProcess {
     pub env: String,
     pub root_directory: String,
     pub current_working_directory: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxProcess {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            exists: bool,
-            comm: String,
-            command_line: String,
-            pid: i32, 
-            ppid: i32,
-            env: String,
-            root_directory: String,
-            current_working_directory: String,
-            tags: Vec<String>) -> TxProcess {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        exists: bool,
+        comm: String,
+        command_line: String,
+        pid: i32,
+        ppid: i32,
+        env: String,
+        root_directory: String,
+        current_working_directory: String,
+        tags: Vec<String>,
+    ) -> TxProcess {
         TxProcess {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -597,7 +614,7 @@ impl TxProcess {
             env,
             root_directory,
             current_working_directory,
-            tags
+            tags,
         }
     }
 
@@ -621,18 +638,19 @@ pub struct TxProcessFile {
     pub link: String,
     pub path: String,
     pub exists: bool,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxProcessFile {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            pid: i32,
-            link: String,
-            path: String,
-            exists: bool,
-            tags: Vec<String>) -> TxProcessFile {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        pid: i32,
+        link: String,
+        path: String,
+        exists: bool,
+        tags: Vec<String>,
+    ) -> TxProcessFile {
         TxProcessFile {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -643,7 +661,7 @@ impl TxProcessFile {
             link,
             path,
             exists,
-            tags
+            tags,
         }
     }
 
@@ -670,21 +688,22 @@ pub struct TxProcessMaps {
     pub offset: String,
     pub device: String,
     pub inode: u128,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxProcessMaps {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String, 
-            pid: i32, 
-            address_range: String,
-            permissions: String,
-            offset: String,
-            device: String,
-            inode: u128,
-            tags: Vec<String>) -> TxProcessMaps {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        pid: i32,
+        address_range: String,
+        permissions: String,
+        offset: String,
+        device: String,
+        inode: u128,
+        tags: Vec<String>,
+    ) -> TxProcessMaps {
         TxProcessMaps {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -698,7 +717,7 @@ impl TxProcessMaps {
             device,
             offset,
             inode,
-            tags
+            tags,
         }
     }
 
@@ -723,20 +742,21 @@ pub struct TxLocalUser {
     pub description: String,
     pub home_directory: String,
     pub shell: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxLocalUser {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            name: String, 
-            uid: i32,
-            gid: i32, 
-            description: String,
-            home_directory: String,
-            shell: String,
-            tags: Vec<String>) -> TxLocalUser {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        name: String,
+        uid: i32,
+        gid: i32,
+        description: String,
+        home_directory: String,
+        shell: String,
+        tags: Vec<String>,
+    ) -> TxLocalUser {
         TxLocalUser {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -749,7 +769,7 @@ impl TxLocalUser {
             description,
             home_directory,
             shell,
-            tags
+            tags,
         }
     }
 
@@ -771,17 +791,18 @@ pub struct TxLocalGroup {
     pub name: String,
     pub gid: u32,
     pub members: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxLocalGroup {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            name: String, 
-            gid: u32,
-            members: String,
-            tags: Vec<String>) -> TxLocalGroup {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        name: String,
+        gid: u32,
+        members: String,
+        tags: Vec<String>,
+    ) -> TxLocalGroup {
         TxLocalGroup {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -791,7 +812,7 @@ impl TxLocalGroup {
             name,
             gid,
             members,
-            tags
+            tags,
         }
     }
 
@@ -811,25 +832,26 @@ pub struct TxLoadedModule {
     pub data_type: String,
     pub timestamp: String,
     pub name: String,
-    pub size: i64,                  // module size in memory
-    pub loaded: i8,                 // how many times the module is loaded
-    pub dependencies: String,       // other modules this module is dependant on
-    pub state: String,              // state is: Live, Loading, or Unloading
-    pub memory_offset: String,      // location in kernel memory of module
-    pub tags: Vec<String>
+    pub size: i64,             // module size in memory
+    pub loaded: i8,            // how many times the module is loaded
+    pub dependencies: String,  // other modules this module is dependant on
+    pub state: String,         // state is: Live, Loading, or Unloading
+    pub memory_offset: String, // location in kernel memory of module
+    pub tags: Vec<String>,
 }
 impl TxLoadedModule {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            name: String,
-            size: i64,
-            loaded: i8,
-            dependencies: String,
-            state: String,
-            memory_offset: String,
-            tags: Vec<String>) -> TxLoadedModule {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        name: String,
+        size: i64,
+        loaded: i8,
+        dependencies: String,
+        state: String,
+        memory_offset: String,
+        tags: Vec<String>,
+    ) -> TxLoadedModule {
         TxLoadedModule {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -842,7 +864,7 @@ impl TxLoadedModule {
             dependencies,
             state,
             memory_offset,
-            tags
+            tags,
         }
     }
 
@@ -865,18 +887,19 @@ pub struct TxMountPoint {
     pub mount_point: String,
     pub file_system_type: String,
     pub mount_options: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxMountPoint {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            name: String,
-            mount_point: String,
-            file_system_type: String,
-            mount_options: String,
-            tags: Vec<String>) -> TxMountPoint {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        name: String,
+        mount_point: String,
+        file_system_type: String,
+        mount_options: String,
+        tags: Vec<String>,
+    ) -> TxMountPoint {
         TxMountPoint {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -887,7 +910,7 @@ impl TxMountPoint {
             mount_point,
             file_system_type,
             mount_options,
-            tags
+            tags,
         }
     }
 
@@ -909,29 +932,30 @@ pub struct TxNetConn {
     pub path: String,
     pub pid: i32,
     pub uid: i32,
-    pub l_ip: String,   // local ip
-    pub l_port: u16,    // local port
-    pub r_ip: String,   // remote ip
-    pub r_port: u16,    // remote port
+    pub l_ip: String, // local ip
+    pub l_port: u16,  // local port
+    pub r_ip: String, // remote ip
+    pub r_port: u16,  // remote port
     pub status: String,
     pub inode: u128,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxNetConn {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            pid: i32,
-            uid: i32,
-            l_ip: String,
-            l_port: u16,
-            r_ip: String,
-            r_port: u16,
-            status: String,
-            inode: u128,
-            tags: Vec<String>) -> TxNetConn {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        pid: i32,
+        uid: i32,
+        l_ip: String,
+        l_port: u16,
+        r_ip: String,
+        r_port: u16,
+        status: String,
+        inode: u128,
+        tags: Vec<String>,
+    ) -> TxNetConn {
         TxNetConn {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -947,7 +971,7 @@ impl TxNetConn {
             r_port,
             status,
             inode,
-            tags
+            tags,
         }
     }
 
@@ -969,27 +993,28 @@ pub struct TxCron {
     pub path: String,
     pub minute: String,
     pub hour: String,
-    pub day_of_month: String, 
+    pub day_of_month: String,
     pub month: String,
-    pub day_of_week: String, 
-    pub name: String, 
+    pub day_of_week: String,
+    pub name: String,
     pub command_line: String,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxCron {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            minute: String,
-            hour: String,
-            day_of_month: String, 
-            month: String,
-            day_of_week: String,
-            name: String, 
-            command_line: String,
-            tags: Vec<String>) -> TxCron {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        minute: String,
+        hour: String,
+        day_of_month: String,
+        month: String,
+        day_of_week: String,
+        name: String,
+        command_line: String,
+        tags: Vec<String>,
+    ) -> TxCron {
         TxCron {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -1004,7 +1029,7 @@ impl TxCron {
             day_of_week,
             name,
             command_line,
-            tags
+            tags,
         }
     }
 
@@ -1025,18 +1050,19 @@ pub struct TxDirContentCounts {
     pub hard_link_count: i128,
     pub visible_count: i128,
     pub hidden_count: i128,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 impl TxDirContentCounts {
     pub fn new(
-            parent_data_type: String,
-            data_type: String,
-            timestamp: String,
-            path: String,
-            hard_link_count: i128,
-            visible_count: i128,
-            hidden_count: i128,
-            tags: Vec<String>) -> TxDirContentCounts {
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        path: String,
+        hard_link_count: i128,
+        visible_count: i128,
+        hidden_count: i128,
+        tags: Vec<String>,
+    ) -> TxDirContentCounts {
         TxDirContentCounts {
             device_name: DEVICE_NAME.to_string(),
             src_ip: DEVICE_IP.to_string(),
@@ -1047,7 +1073,7 @@ impl TxDirContentCounts {
             hard_link_count,
             visible_count,
             hidden_count,
-            tags
+            tags,
         }
     }
 

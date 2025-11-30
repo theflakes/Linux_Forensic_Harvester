@@ -1,10 +1,10 @@
-extern crate file;
 extern crate libc;
 extern crate md5;
 extern crate path_abs; // needed to create absolute file paths from relative
-extern crate tree_magic; // needed to find MIME type of files
+extern crate tree_magic_mini; // needed to find MIME type of files
 
 use crate::{data_defs::*, mutate::*, process_file, time::*};
+use bstr::ByteSlice;
 use libc::{
     BLKSSZGET,
     S_IRGRP,
@@ -29,12 +29,13 @@ use std::io::{BufRead, BufReader, Read};
 use std::os::fd::AsRawFd;
 use std::os::unix::prelude::{MetadataExt, PermissionsExt};
 use std::path::Path;
+use tree_magic_mini as tree_magic;
 
 const MAX_FILE_SIZE: u64 = 256000000;
 
 // return file mime type string
 pub fn get_filetype(buffer: &mut Vec<u8>) -> String {
-    tree_magic::from_u8(buffer)
+    (tree_magic::from_u8(buffer)).to_string()
 }
 
 // true if path exists, false otherwise
