@@ -522,6 +522,7 @@ pub struct TxLink {
     pub size: u64,
     pub hidden: bool,
     pub target_exists: bool,
+    pub permissions: String,
     pub tags: Vec<String>,
 }
 impl TxLink {
@@ -537,6 +538,7 @@ impl TxLink {
         size: u64,
         hidden: bool,
         target_exists: bool,
+        permissions: String,
         tags: Vec<String>,
     ) -> TxLink {
         TxLink {
@@ -553,6 +555,7 @@ impl TxLink {
             size,
             hidden,
             target_exists,
+            permissions,
             tags,
         }
     }

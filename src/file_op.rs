@@ -209,6 +209,8 @@ pub fn process_link(
     if not_in_time_window(&atime, &ctime, &wtime)? {
         return Ok(());
     }
+    let mode = link.mode();
+    let perms = parse_permissions(mode);
     TxLink::new(
         pdt.to_string(),
         "ShellLink".to_string(),
@@ -221,6 +223,7 @@ pub fn process_link(
         size,
         hidden,
         deleted,
+        perms,
         sort_hashset(tags.clone()),
     )
     .report_log();
