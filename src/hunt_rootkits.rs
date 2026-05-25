@@ -36,13 +36,13 @@ pub fn rootkit_hunt(
     procs_already_seen: &mut HashMap<String, String>,
 ) -> io::Result<()> {
     let mut tags = reset_tags("Rootkit", ["KernelTaint".to_string()].to_vec());
-    examine_kernel_taint(&mut tags);
+    let _ = examine_kernel_taint(&mut tags);
 
     tags = reset_tags("Rootkit", ["ProcHidden".to_string()].to_vec());
     find_hidden_procs(files_already_seen, procs_already_seen, &mut tags)?;
 
     tags = reset_tags("Rootkit", ["ProcLockWorldRead".to_string()].to_vec());
-    find_files_with_permissions(
+    let _ = find_files_with_permissions(
         Path::new("/run"),
         0o644,
         files_already_seen,
@@ -526,7 +526,7 @@ fn find_hidden_sys_modules(
             sort_hashset(tags.clone()),
         )
         .report_log();
-        process_file(&pdt, Path::new("/sys/module"), files_already_seen, tags);
+        let _ = process_file(&pdt, Path::new("/sys/module"), files_already_seen, tags);
     }
     Ok(())
 }
@@ -669,7 +669,7 @@ fn find_odd_run_locks(
             }
             let link = entry.path().read_link()?;
             if link.to_string_lossy().contains("lock") {
-                process_file(&dt, &entry.path(), files_already_seen, tags);
+                let _ = process_file(&dt, &entry.path(), files_already_seen, tags);
             }
             sleep();
         }
