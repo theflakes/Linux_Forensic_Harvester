@@ -1,9 +1,4 @@
-#
-# Statically Link so that C++ runtime is not required for running the binary
-#
-[build]
-target = "x86_64-unknown-linux-musl"
-
+# Keep your Windows blocks as they are...
 [target.x86_64-pc-windows-gnu]
 rustflags = ["-C", "target-feature=+crt-static", "-Aunused"]
 
@@ -13,5 +8,22 @@ rustflags = ["-C", "target-feature=+crt-static", "-Aunused"]
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static", "-Aunused"]
 
-[target.'cfg(target_os = "linux")']
-rustflags = ["-C", "target-feature=+crt-static", "-Aunused", "-C", "relocation-model=static", "-C", "strip=symbols"]
+# 1. Concrete target for your aarch64 output (combining the flags safely)
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-Aunused",
+    "-C", "relocation-model=static",
+    "-C", "strip=symbols"
+]
+
+# 2. If you also build statically for x86_64 linux (like the musl target commented out top),
+# specify it explicitly here so it doesn't leak into the host toolchain:
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-Aunused",
+    "-C", "relocation-model=static",
+    "-C", "strip=symbols"
+]

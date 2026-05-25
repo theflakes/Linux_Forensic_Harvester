@@ -142,6 +142,80 @@ No configuration files are currently included. Everything is compiled in to ache
 Anything of interest (a hunt, e.g. for rootkits or interesting stings/content) will be noted in the `tags` field.  
 
 Information gathered on:
+- Cgroup
+  - Data Type: `Cgroup` — per-process cgroup membership, reads `/proc/<pid>/cgroup`
+  - Data Type: `CgroupMeta` — cgroup resource state from `/sys/fs/cgroup`
+  - What is a cgroup?
+    - Control groups (cgroups) are a Linux kernel feature that limits, accounts for,
+      and isolates the resource usage (CPU, memory, disk, network, etc.) of a set of
+      processes. Every process belongs to exactly one cgroup. Cgroups form a tree:
+      a process is always a member of all cgroups on the path from a leaf node up to
+      the root.
+    - On cgroup v2 (modern systems) there is a single unified hierarchy mounted at
+      `/sys/fs/cgroup/unified`. On cgroup v1 each controller (memory, cpu, pids, etc.)
+      has its own hierarchy. This tool reads both `cgroup.procs` (v2) and `tasks` (v1).
+  - **`Cgroup` fields (per-process log)**
+    | Field | Forensic significance |
+    |---|---|
+    | `pid` | The process ID belonging to this cgroup |
+    | `comm` / `command_line` | What the process is running — useful for confirming identity |
+    | `cgroup_path` | The relative cgroup path from `/proc/<pid>/cgroup` |
+    | `cgroup_content` | Raw `/proc/<pid>/cgroup` lines for correlation |
+    | `container_runtime` | Extracted runtime: `docker`, `podman`, `runc`, or `kubernetes` |
+    | `container_id` | Container ID (64-hex for runc, prefixed for docker/libpod, pod-qualified for k8s) |
+    | `systemd_unit` / `systemd_slice` | Systemd unit and slice name (e.g. `system.slice:sshd.service`) |
+    | `user_session_id` | Logind session for interactive user processes |
+    | `kubernetes_pod_id` / `kubernetes_class` | K8s pod UID and resource class (besteffort, burstable, guaranteed) |
+  - **`CgroupMeta` fields (cgroup-level resource log)**
+    | Field | Forensic significance |
+    |---|---|
+    | `cgroup_path` | Hierarchical path under `/sys/fs/cgroup` |
+    | `cgroup_pids` | All PIDs in this cgroup and its descendants (read from `cgroup.procs` / `tasks`) |
+    | `pids_current` | Kernel-reported count of tasks in the cgroup |
+    | `pids_max` | Hard limit on number of tasks; `unlimited` means no limit |
+    | `pids_peak` | Highest number of tasks that have existed simultaneously |
+    | `memory.current` / `memory.max` | Current memory RSS+cache usage and hard limit |
+    | `memory.stat` | Breakdown: anon, file, kernel stack, slab, pgfault, pgmajfault, … |
+    | `memory.events` | Counters that increment when thresholds are hit (oom, low, high) |
+    | `cpu.max` | CPU bandwidth limit (quota period, e.g. `100000 100000` = 100 %) |
+    | `cpu.stat` | CPU time consumed in usecs by user, system, irq |
+    | `cgroup_controllers` | Controllers enabled in this cgroup |
+    | `cgroup_subtree_control` | Which controllers can be delegated to child cgroups |
+    | `io.stat` / `io.max` / `io.events` | Block-device I/O accounting and limits |
+    | `cgroup.progeny` | PIDs of child cgroups (not processes inside them) |
+    | `cgroup.freeze` | Whether the cgroup and its descendants are frozen (stop scheduling) |
+  - **Spotting evil — cross-field comparisons**
+    - `pids_current` vs `cgroup_pids` length — if the kernel counter says 3 but the
+      `cgroup.procs` file lists 12 processes, the kernel may be lying (rootkit hiding
+      processes) or a process has escaped its cgroup.
+    - `pids_current` vs `pids_peak` — if `pids_current` is 0 but `pids_peak` is very
+      high, a burst of processes (fork bomb, crypto miner, mass compromise) existed and
+      may have left artifacts.
+    - `memory.current` near `memory.max` — process is memory-starved; could indicate a
+      memory-based DoS or a misconfigured container that can consume all host memory.
+    - `cpu.max` at `max 1` with elevated `cpu.stat` usage — CPU is being throttled;
+      compare with `pids_current` to see if a small number of processes are hogging
+      bandwidth.
+    - `container_id` on `CgroupMeta` but no matching `Cgroup` log — a cgroup exists on
+      disk that no running process claims, which can mean a container was torn down
+      improperly or a rogue cgroup was created for persistence.
+    - `systemd_unit` that is not a known service — unexpected units (e.g. `.service` or
+      `.scope` names that do not map to installed packages) are a strong indicator of
+      dropped binaries masquerading as systemd units.
+  - **Threads and `clone()`**
+    - Linux threads are not a separate kernel object — they are processes that share
+      address space via `clone()` with the `CLONE_THREAD` flag. All threads of the same
+      pthread family share the same `tgid` (thread group ID, i.e. the original PID) and
+      have unique `pid` values.
+    - The cgroup tracks **tasks**, not threads. `pids_current` counts every task (thread)
+      in the cgroup, not just thread groups. So a single-threaded process contributes 1
+      and a 10-thread application contributes 10.
+    - To get the number of distinct **processes** (thread groups) you count unique
+      `tgid` values in `/proc/[pid]/status` (`Threads:` field gives per-process thread
+      count). The total threads = sum of all `Threads:` values = `cgroup_pids` length.
+    - Forensic tip: a seemingly benign process with a very high thread count compared
+      to its siblings may indicate a malicious loader, C2 agent, or a process that has
+      been repurposed.
 - Cron jobs
   - Data type: `Cron`
 - Drive mounts

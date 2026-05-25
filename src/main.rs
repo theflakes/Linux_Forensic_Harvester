@@ -18,6 +18,7 @@ extern crate walkdir; // traverse directory trees
 #[macro_use]
 extern crate lazy_static;
 
+mod cgroup_harvest;
 mod data_defs;
 mod file_op;
 mod hunt_rootkits;
@@ -25,7 +26,7 @@ mod hunts;
 mod mutate;
 mod time;
 
-
+use cgroup_harvest::{harvest_cgroup_state, harvest_cgroups};
 use hunt_rootkits::{get_rootkit_hidden_file_data, rootkit_hunt};
 use hunts::*;
 use memmap2::{Mmap, MmapOptions};
@@ -902,7 +903,7 @@ fn is_root() {
 fn main() -> std::io::Result<()> {
     is_root();
 
-    if !ARGS.flag_forensics && !ARGS.flag_rootkit && !ARGS.flag_suidsgid {
+    if !ARGS.flag_forensics && !ARGS.flag_rootkit && !ARGS.flag_suidsgid && !ARGS.flag_cgroup {
         println!("{}", USAGE);
         return Ok(());
     }
@@ -917,6 +918,17 @@ fn main() -> std::io::Result<()> {
 
     if ARGS.flag_suidsgid {
         find_suid_sgid(&mut files_already_seen)?;
+    }
+
+    if ARGS.flag_cgroup {
+        // Process-level: which cgroup each process belongs to
+        for cgroup_snap in harvest_cgroups() {
+            cgroup_snap.report_log();
+        }
+        // Cgroup metadata-level: resource state of each cgroup
+        for cgroup_meta in harvest_cgroup_state() {
+            cgroup_meta.report_log();
+        }
     }
 
     if ARGS.flag_forensics {

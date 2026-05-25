@@ -50,7 +50,7 @@ Must be run as root.
 
 Usage:
     lin_fh [options]
-    lin_fh -fksl
+    lin_fh -fkcl
     lin_fh [--ip <ip> --port <port>] [--depth <depth>]
     lin_fh [--ip <ip> --port <port>] [--limit]
     lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
@@ -100,6 +100,20 @@ Options:
                             - Hex string length must be a multiple of two
                             - format: 0a1b2c3d4e5f
                             - Tag: HexHunt
+  Cgroup harvesting:
+    -c, --cgroup            Harvest cgroup information
+                            - Process-level: TxCgroup entries
+                              - Reads /proc/<pid>/cgroup for each process
+                              - Parses cgroup paths to extract:
+                                - Container runtime and ID (Docker, Podman, runc, Kubernetes)
+                                - Systemd unit/slice names
+                                - User session IDs
+                                - Kubernetes pod IDs
+                            - Cgroup metadata-level: TxCgroupMeta entries
+                              - Reads /sys/fs/cgroup resource state
+                              - Memory, CPU, PIDs limits and usage
+                            - data_type: Cgroup (process-level)
+                            - data_type: CgroupMeta (cgroup metadata)
 
 Note:
   Must be run as root.
@@ -129,6 +143,7 @@ pub struct Args {
     pub flag_regex: String,
     pub flag_hex: String,
     pub flag_suidsgid: bool,
+    pub flag_cgroup: bool,
 
     // time window
     pub flag_start: String,
@@ -1076,6 +1091,202 @@ impl TxDirContentCounts {
             hard_link_count,
             visible_count,
             hidden_count,
+            tags,
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
+// hold cgroup membership and forensic metadata
+#[derive(Serialize)]
+pub struct TxCgroup {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    #[serde(default = "Cgroup")]
+    pub data_type: String,
+    pub timestamp: String,
+    pub pid: i32,
+    pub comm: String,
+    pub command_line: String,
+    pub uid: u32,
+    pub gid: u32,
+    pub cgroup_path: String,
+    pub cgroup_content: String,
+    pub container_runtime: String,
+    pub container_id: String,
+    pub systemd_unit: String,
+    pub systemd_slice: String,
+    pub user_session_id: String,
+    pub kubernetes_pod_id: String,
+    pub kubernetes_class: String,
+    tags: Vec<String>,
+}
+impl TxCgroup {
+    pub fn new(
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        pid: i32,
+        comm: String,
+        command_line: String,
+        uid: u32,
+        gid: u32,
+        cgroup_path: String,
+        cgroup_content: String,
+        container_runtime: String,
+        container_id: String,
+        systemd_unit: String,
+        systemd_slice: String,
+        user_session_id: String,
+        kubernetes_pod_id: String,
+        kubernetes_class: String,
+        tags: Vec<String>,
+    ) -> TxCgroup {
+        TxCgroup {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            pid,
+            comm,
+            command_line,
+            uid,
+            gid,
+            cgroup_path,
+            cgroup_content,
+            container_runtime,
+            container_id,
+            systemd_unit,
+            systemd_slice,
+            user_session_id,
+            kubernetes_pod_id,
+            kubernetes_class,
+            tags,
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
+/// Cgroup metadata log — resource state from /sys/fs/cgroup.
+/// parent_data_type = "Cgroup"
+/// Fields: memory, CPU, PIDs, I/O, cgroup hierarchy and events.
+#[derive(Serialize)]
+pub struct TxCgroupMeta {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    #[serde(default = "CgroupMeta")]
+    pub data_type: String,
+    pub timestamp: String,
+    pub cgroup_path: String,
+    pub container_runtime: String,
+    pub container_id: String,
+    pub systemd_unit: String,
+    pub systemd_slice: String,
+    pub user_session_id: String,
+    pub kubernetes_pod_id: String,
+    pub kubernetes_class: String,
+    pub memory_current: String,
+    pub memory_max: String,
+    pub memory_stat: String,
+    pub cpu_max: String,
+    pub cpu_stat: String,
+    pub pids_max: String,
+    pub pids_current: String,
+    pub pids_peak: String,
+    pub memory_events: String,
+    pub memory_events_local: String,
+    pub io_stat: String,
+    pub io_max: String,
+    pub io_events: String,
+    pub cgroup_controllers: String,
+    pub cgroup_subtree_control: String,
+    pub cgroup_events: String,
+    pub cgroup_max: String,
+    pub cgroup_progeny: String,
+    pub cgroup_freeze: String,
+    pub cgroup_pids: Vec<i32>,
+    tags: Vec<String>,
+}
+impl TxCgroupMeta {
+    pub fn new(
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        cgroup_path: String,
+        container_runtime: String,
+        container_id: String,
+        systemd_unit: String,
+        systemd_slice: String,
+        user_session_id: String,
+        kubernetes_pod_id: String,
+        kubernetes_class: String,
+        memory_current: String,
+        memory_max: String,
+        memory_stat: String,
+        cpu_max: String,
+        cpu_stat: String,
+        pids_max: String,
+        pids_current: String,
+        pids_peak: String,
+        memory_events: String,
+        memory_events_local: String,
+        io_stat: String,
+        io_max: String,
+        io_events: String,
+        cgroup_controllers: String,
+        cgroup_subtree_control: String,
+        cgroup_events: String,
+        cgroup_max: String,
+        cgroup_progeny: String,
+        cgroup_freeze: String,
+        cgroup_pids: Vec<i32>,
+        tags: Vec<String>,
+    ) -> TxCgroupMeta {
+        TxCgroupMeta {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            cgroup_path,
+            container_runtime,
+            container_id,
+            systemd_unit,
+            systemd_slice,
+            user_session_id,
+            kubernetes_pod_id,
+            kubernetes_class,
+            memory_current,
+            memory_max,
+            memory_stat,
+            cpu_max,
+            cpu_stat,
+            pids_max,
+            pids_current,
+            pids_peak,
+            memory_events,
+            memory_events_local,
+            io_stat,
+            io_max,
+            io_events,
+            cgroup_controllers,
+            cgroup_subtree_control,
+            cgroup_events,
+            cgroup_max,
+            cgroup_progeny,
+            cgroup_freeze,
+            cgroup_pids,
             tags,
         }
     }
