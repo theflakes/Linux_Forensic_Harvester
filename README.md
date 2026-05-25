@@ -31,15 +31,15 @@ User cron jobs:
 Linux Forensic Harvester
     Author: Brian Kellogg
     License: MIT
-    Disclaimer: 
-        This tool comes with no warranty or support. 
+    Disclaimer:
+        This tool comes with no warranty or support.
         If anyone chooses to use it, you accept all responsibility and liability.
 
 Must be run as root.
 
 Usage:
     lin_fh [options]
-    lin_fh -fksl
+    lin_fh -fkcl
     lin_fh [--ip <ip> --port <port>] [--depth <depth>]
     lin_fh [--ip <ip> --port <port>] [--limit]
     lin_fh [--i <ip> -p <port>] [--suidsgid] [--limit]
@@ -68,8 +68,8 @@ Options:
     -i, --ip <ip>           IP address to send output to [default: NONE]
     -p, --port <port>       Destination port to send output to [default: 80]
   Time window:
-    This option will compare the specified date window to the file's 
-    ctime, atime, or mtime and only output logs where one of the dates falls 
+    This option will compare the specified date window to the file's
+    ctime, atime, or mtime and only output logs where one of the dates falls
     within that window. Window start is inclusive, window end is exclusive.
     --start <UTC_start_time>    Start of time window: [default: 0000-01-01T00:00:00]
                                 - format: YYYY-MM-DDTHH:MM:SS
@@ -89,6 +89,20 @@ Options:
                             - Hex string length must be a multiple of two
                             - format: 0a1b2c3d4e5f
                             - Tag: HexHunt
+  Cgroup harvesting:
+    -c, --cgroup            Harvest cgroup information
+                            - Process-level: TxCgroup entries
+                              - Reads /proc/<pid>/cgroup for each process
+                              - Parses cgroup paths to extract:
+                                - Container runtime and ID (Docker, Podman, runc, Kubernetes)
+                                - Systemd unit/slice names
+                                - User session IDs
+                                - Kubernetes pod IDs
+                            - Cgroup metadata-level: TxCgroupMeta entries
+                              - Reads /sys/fs/cgroup resource state
+                              - Memory, CPU, PIDs limits and usage
+                            - data_type: Cgroup (process-level)
+                            - data_type: CgroupMeta (cgroup metadata)
 
 Note:
   Must be run as root.
@@ -97,13 +111,15 @@ Note:
   memory is less that the size on disk. This is a simple possible root kit identification
   method.
   - See: https://github.com/sandflysecurity/sandfly-file-decloak
-  
+
   To capture network output, start a netcat listener on your port of choice.
   Use the -k option with netcat to prevent netcat from closing after a TCP connection is closed.
 
   Files larger than 256MB will not be hashed.
 
   Files larger than '--max' will not be inspected for interesting strings.
+
+Must be run as root
 ```
 
 ## To compile
