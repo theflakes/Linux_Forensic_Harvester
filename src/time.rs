@@ -16,7 +16,7 @@ pub fn get_epoch_start() -> String  {
 }
 
 // convert string to utc datetime
-// pub fn to_utc_datetime(time: &str) -> Result<DateTime::<Utc>, Error>  
+// pub fn to_utc_datetime(time: &str) -> Result<DateTime::<Utc>, Error>
 // {
 //     let _: DateTime<Utc> = match Utc.datetime_from_str(time, "%Y-%m-%dT%H:%M:%S.%3f") {
 //         Ok(t) => return Ok(t),
@@ -30,14 +30,14 @@ fn to_utc_datetime(time: &str) -> DateTime::<Utc> {
             let datetime = datetime.with_timezone(&Utc);
             return datetime
         }
-        Err(e) => {
+        Err(_) => {
             return *TIME_END
         }
     }
 }
 
 // is the datetime within the time window we are examining?
-pub fn in_time_window(time: &str) -> Result<bool, Error>  
+pub fn in_time_window(time: &str) -> Result<bool, Error>
 {
     // convert time for comparision to time window start and end
     let t = to_utc_datetime(time);

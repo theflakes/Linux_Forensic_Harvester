@@ -29,20 +29,15 @@ mod time;
 use cgroup_harvest::{harvest_cgroup_state, harvest_cgroups};
 use hunt_rootkits::{get_rootkit_hidden_file_data, rootkit_hunt};
 use hunts::*;
-use memmap2::{Mmap, MmapOptions};
 use nix::unistd::Uid;
 use regex::Regex;
-use serde::de::IntoDeserializer;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::{BufRead, BufReader};
 use std::os::unix::fs::MetadataExt;
 use std::process;
-use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
-    fs::{self, DirEntry, File},
-    os::unix::prelude::PermissionsExt,
+    fs,
     path::{Path, PathBuf},
     process::exit,
 };
@@ -339,7 +334,7 @@ fn process_memmaps(
     for entry in fs::read_dir(map_files_path)? {
         let entry = entry?;
         let link = entry.path();
-        process_file(pdt, &link, files_already_seen, tags);
+        let _ = process_file(pdt, &link, files_already_seen, tags);
     }
     Ok(())
 }
@@ -349,7 +344,7 @@ fn process_maps(
     proc_path: &PathBuf,
     pid: i32,
     files_already_seen: &mut HashSet<String>,
-    procs_already_seen: &mut HashMap<String, String>,
+    _procs_already_seen: &mut HashMap<String, String>,
     tags: &mut HashSet<String>,
 ) -> std::io::Result<()> {
     let maps_path = proc_path.join("maps");
@@ -383,7 +378,7 @@ fn process_maps(
         )
         .report_log();
         let mp = push_file_path(&map_path, "")?;
-        process_file(&data_type, &mp, files_already_seen, tags);
+        let _ = process_file(&data_type, &mp, files_already_seen, tags);
         sleep();
     }
     Ok(())
@@ -422,7 +417,7 @@ fn process_process(
     if stat.len() > 3 {
         ppid = to_int32(&stat[3])?;
     }
-    let mut data_type = "Process".to_string();
+    let data_type = "Process".to_string();
     TxProcess::new(
         pdt.to_string(),
         data_type.clone(),
@@ -443,7 +438,7 @@ fn process_process(
         || !procs_already_seen.get(root_path).unwrap().eq(&path)
     {
         procs_already_seen.insert(root_path.to_string(), path.clone());
-        process_file(pdt, bin, files_already_seen, tags);
+        let _ = process_file(pdt, bin, files_already_seen, tags);
         process_file_descriptors(&path, root_path, pid, &data_type, files_already_seen, tags)?;
         process_maps(pdt, bin, pid, files_already_seen, procs_already_seen, tags)?;
         process_memmaps(pdt, pid, files_already_seen, tags)?;
@@ -669,7 +664,6 @@ fn process_cron(
             Ok(_) => continue,
             Err(_) => continue,
         };
-        sleep();
     }
     Ok(())
 }
@@ -685,7 +679,7 @@ fn watch_file(
     mime_type: &str,
     size: u64,
     files_already_seen: &mut HashSet<String>,
-) -> std::io::Result<(HashSet<String>)> {
+) -> std::io::Result<HashSet<String>> {
     let mut tags: HashSet<String> = HashSet::new();
     if WATCH_FILE_TYPES.iter().any(|m| mime_type.contains(m)) {
         let data = read_file_string(file_path)?;
@@ -811,7 +805,7 @@ fn process_directory_files(
             {
                 let p = entry.path().to_string_lossy().to_owned();
                 find_hidden_directory_contents(&p)?;
-                process_file(&pdt, entry.path(), files_already_seen, &mut HashSet::new());
+                let _ = process_file(&pdt, entry.path(), files_already_seen, &mut HashSet::new());
                 sleep();
             }
         }
@@ -820,7 +814,7 @@ fn process_directory_files(
 }
 
 fn str_starts_with(path: &str) -> bool {
-    let does_start_with = ((WATCH_PATHS.iter().any(|p| path.starts_with(p)))
+    let does_start_with = WATCH_PATHS.iter().any(|p| path.starts_with(p)
         || (["/dev/", "/mnt/", "/proc/", "/sys/"]
             .iter()
             .any(|p| path.starts_with(p))));

@@ -9,12 +9,12 @@ use crate::mutate::hex_to_bytes;
 
 use chrono::*;
 use docopt::Docopt;
-use hostname::*;
+use hostname;
 use regex::Regex;
 use serde::Serialize;
 use serde_derive::Deserialize;
 use std::thread;
-use std::{collections::HashSet, env, io::prelude::Write, process::Command};
+use std::{collections::HashSet, io::prelude::Write, process::Command};
 
 lazy_static! {
     pub static ref DEVICE_NAME: String = hostname::get()
