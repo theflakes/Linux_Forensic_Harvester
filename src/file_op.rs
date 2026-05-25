@@ -4,9 +4,7 @@ extern crate path_abs; // needed to create absolute file paths from relative
 extern crate tree_magic_mini; // needed to find MIME type of files
 
 use crate::{data_defs::*, mutate::*, process_file, time::*};
-use bstr::ByteSlice;
 use libc::{
-    BLKSSZGET,
     S_IRGRP,
     S_IROTH,
     S_IRUSR, // see: https://www.gnu.org/software/libc/manual/html_node/Permission-Bits.html
@@ -20,13 +18,11 @@ use libc::{
     S_IXOTH,
     S_IXUSR,
 };
-use path_abs::{PathAbs, PathInfo};
+use path_abs::PathAbs;
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::hash::Hash;
 use std::io;
 use std::io::{BufRead, BufReader, Read};
-use std::os::fd::AsRawFd;
 use std::os::unix::prelude::{MetadataExt, PermissionsExt};
 use std::path::Path;
 use tree_magic_mini as tree_magic;

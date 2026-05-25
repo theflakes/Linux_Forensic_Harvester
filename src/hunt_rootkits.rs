@@ -11,26 +11,24 @@
 use crate::{
     data_defs::{
         sleep, sort_hashset, TxCharDevice, TxDirContentCounts, TxFileContent, TxGeneral,
-        TxHiddenData, TxKernelTaint, TxProcessMaps,
+        TxHiddenData, TxKernelTaint,
     },
     file_op::{
         find_files_with_permissions, get_directory_content_counts, parse_permissions,
-        read_file_bytes, read_file_string, resolve_link, u8_to_hex_string,
+        read_file_string, resolve_link, u8_to_hex_string,
     },
-    mutate::{format_date, push_file_path, to_int32, to_u128},
+    mutate::format_date,
     process_file, process_process,
     time::{get_epoch_start, get_now},
 };
-use chrono::NaiveDateTime;
 use memmap2::MmapOptions;
 use path_abs::PathOps;
 use std::{
     collections::{HashMap, HashSet},
     fs,
     io::{self, BufRead, BufReader, Read},
-    os::unix::prelude::{FileTypeExt, MetadataExt, PermissionsExt},
+    os::unix::prelude::{FileTypeExt, MetadataExt},
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub fn rootkit_hunt(
@@ -55,7 +53,7 @@ pub fn rootkit_hunt(
     tags = reset_tags("Rootkit", ["ProcMimic".to_string()].to_vec());
     match find_proc_mimics(files_already_seen, procs_already_seen, &mut tags) {
         Ok(it) => it,
-        Err(err) => (()),
+        Err(_err) => {}
     };
 
     tags = reset_tags("Rootkit", ["ProcHiddenParent".to_string()].to_vec());
@@ -237,7 +235,7 @@ fn starts_with_any(path: &PathBuf, prefixes: &[&str]) -> bool {
     Need to better understand it.
 */
 fn find_proc_mimics(
-    mut files_already_seen: &mut HashSet<String>,
+    files_already_seen: &mut HashSet<String>,
     procs_already_seen: &mut HashMap<String, String>,
     tags: &mut HashSet<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -392,7 +390,7 @@ fn find_hidden_parent_procs(
                 tags,
                 procs_already_seen,
             )?;
-            let pid = path
+            let _pid = path
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or_default();
@@ -510,7 +508,7 @@ fn find_thread_mimics(
 
 fn find_hidden_sys_modules(
     files_already_seen: &mut HashSet<String>,
-    procs_already_seen: &mut HashMap<String, String>,
+    _procs_already_seen: &mut HashMap<String, String>,
     tags: &mut HashSet<String>,
 ) -> io::Result<()> {
     let (hard_links, visible_entries, hidden_count) =
@@ -623,7 +621,7 @@ fn find_odd_run_locks(
         ["/usr/bin/pipewire", "/usr/bin/gnome-shell", "/usr/bin/gala"];
     const CMD_FALSE_POSITIVES: [&str; 1] = ["C:\\windows\\system32\\services.exe"];
     let mut pids = Vec::new();
-    let self_pid = std::process::id().to_string();
+    let _self_pid = std::process::id().to_string();
     for entry in fs::read_dir("/proc")? {
         let entry = entry?;
         if !entry.file_type()?.is_dir() || entry.path().ends_with(std::process::id().to_string()) {
@@ -751,7 +749,7 @@ fn find_proc_takeover(
         }
         let segment = init.unwrap_or_default().chars().next().unwrap_or_default();
         if segment == '0' {
-            let pid = path
+            let _pid = path
                 .file_name()
                 .unwrap_or_default()
                 .to_str()
@@ -955,7 +953,7 @@ fn find_char_device_mimic(tags: &mut HashSet<String>) -> io::Result<()> {
             let hex = path.metadata()?.rdev();
             let major = hex >> 8;
             // Safely strip the /dev/ prefix and remove numeric characters from the device name
-            let mut pattern = match path.strip_prefix("/dev/") {
+            let pattern = match path.strip_prefix("/dev/") {
                 Ok(p) => p
                     .to_string_lossy()
                     .to_string()
