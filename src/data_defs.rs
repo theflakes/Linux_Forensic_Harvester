@@ -1,9 +1,9 @@
 extern crate chrono;
 extern crate docopt;
 extern crate nix;
-extern crate serde; // needed for json serialization
-extern crate serde_derive; // needed for json serialization
-extern crate serde_json; // needed for json serialization
+extern crate serde;
+extern crate serde_derive;
+extern crate serde_json;
 
 use crate::mutate::hex_to_bytes;
 
