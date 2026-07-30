@@ -1,12 +1,12 @@
-extern crate chrono;            // DateTime manipulation
-extern crate regex;
 extern crate bstr;
+extern crate chrono; // DateTime manipulation
+extern crate regex;
 
+use crate::{data_defs::*, process_file, time::*};
+use bstr::ByteSlice;
 use regex::Regex;
 use std::{collections::HashSet, path::Path};
-use crate::{data_defs::*, time::*, process_file};
 use std::{io::Result, str};
-use bstr::ByteSlice;
 
 /*
         use \x20 for matching spaces when using "x" directive that doesn't allow spaces in regex
@@ -16,64 +16,80 @@ use bstr::ByteSlice;
             (?:$|\s|[/:@#&\(\]|=\\\}'\"><])
 */
 
-pub fn report_finds(pdt: &str, re: &Regex, file: &str, text: &str, flag: &str) -> std::io::Result<bool> {
+pub fn report_finds(
+    pdt: &str,
+    re: &Regex,
+    file: &str,
+    text: &str,
+    flag: &str,
+) -> std::io::Result<bool> {
     let mut found = false;
     for c in re.captures_iter(text) {
         found = true;
         let line = &c[0];
         let mut tags: HashSet<String> = HashSet::new();
         tags.insert(flag.to_owned());
-        TxFileContent::new(pdt.to_string(),
+        TxFileContent::new(
+            pdt.to_string(),
             "FileContent".to_string(),
-            get_now()?, file.to_string(), line.to_string(),
-            "".to_string(), sort_hashset(tags)).report_log();
+            get_now()?,
+            file.to_string(),
+            line.to_string(),
+            "".to_string(),
+            sort_hashset(tags),
+        )
+        .report_log();
         sleep();
     }
     Ok(found)
 }
 
-pub fn found_base64(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_base64(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref BASE64: Regex = Regex::new(r#"(?mix)
+        static ref BASE64: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 (?:[a-z0-9+\/]{4}){16,}(?:[a-z0-9+\/]{4}|[a-z0-9+\/]{3}=|[a-z0-9+\/]{2}={2})
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &BASE64, file, text, flag)?)
 }
 
-pub fn found_email(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_email(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref EMAIL: Regex = Regex::new(r#"(?mix)
+        static ref EMAIL: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 [a-z0-9._%+-]+@[a-z0-9._-]+\.[a-z0-9-]{2,13}
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &EMAIL, file, text, flag)?)
 }
 
-
-pub fn found_encoding(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_encoding(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref ENCODING: Regex = Regex::new(r#"(?mix)
+        static ref ENCODING: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 [a-z0-9=/+&]{300}
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &ENCODING, file, text, flag)?)
 }
 
-pub fn found_hex(bytes: &Vec<u8>, find_this: &Vec<u8>) -> Result<bool>
-{
+pub fn found_hex(bytes: &Vec<u8>, find_this: &Vec<u8>) -> Result<bool> {
     if find_this != &[255] && bytes.find(find_this).is_some() {
-        return Ok(true)
-	}
+        return Ok(true);
+    }
     Ok(false)
 }
 
@@ -81,40 +97,44 @@ pub fn found_hex(bytes: &Vec<u8>, find_this: &Vec<u8>) -> Result<bool>
     identify files being referenced in the file content
     this is so we can harvest the metadata on these files as well
 */
-pub fn found_paths(text: &str, files_already_seen: &mut HashSet<String>) -> std::io::Result<String> {
+pub fn found_paths(
+    text: &str,
+    files_already_seen: &mut HashSet<String>,
+) -> std::io::Result<String> {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r#"(?mix)(?:^|[\x20"':=!|])((?:/[\w.-]+)+)"#)
-                                .expect("Invalid Regex");
+        static ref RE: Regex =
+            Regex::new(r#"(?mix)(?:^|[\x20"':=!|])((?:/[\w.-]+)+)"#).expect("Invalid Regex");
     }
     let mut tag = String::new();
     let mut tags: HashSet<String> = HashSet::new();
     for c in RE.captures_iter(text) {
         let path = Path::new(&c[1]);
-        tag = "FilePath".to_string();
+        tag = "file_path".to_string();
         tags.insert(tag.clone());
         process_file("FileContent", path, files_already_seen, &mut tags)?;
     }
     Ok(tag)
 }
 
-pub fn found_ipv4(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_ipv4(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref IPV4: Regex = Regex::new(r#"(?mix)
+        static ref IPV4: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 (?:^|\s|[&/:<>\#({\[|'"=@]|[[:^alnum:]]\\)
                     (?:25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1-9][0-9]|[1-9])
                     (?:\.(?:25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1-9]?[0-9])){3}
                 (?:$|\s|[&/:<>\#)}\]|'"\\=@])
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &IPV4, file, text, flag)?)
 }
 
 // Should not match :: as an ipv6 addr
-pub fn found_ipv6(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_ipv6(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
         static ref IPV6: Regex = Regex::new(r#"(?mix)
         (?:.*                                                          # IPv6 https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
@@ -140,72 +160,74 @@ pub fn found_ipv6(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
     Ok(report_finds(pdt, &IPV6, file, text, flag)?)
 }
 
-pub fn found_obfuscation(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_obfuscation(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref OBFUSCATION: Regex = Regex::new(r#"(?mix)
+        static ref OBFUSCATION: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 (?:echo|printf) .+(?:\\|\s*base64\s+-d|xxd\s+-r\s+-p\s*)?\|\s*bash
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &OBFUSCATION, file, text, flag)?)
 }
 
 // Custom regex hunt specified on command line
-pub fn found_regex(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_regex(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     if ARGS.flag_regex != "$^" {
-        return Ok(report_finds(pdt, &CUSTOM_REGEX, file, text, flag)?)
+        return Ok(report_finds(pdt, &CUSTOM_REGEX, file, text, flag)?);
     }
     Ok(false)
 }
 
-pub fn found_righttoleft(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_righttoleft(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref RL: Regex = Regex::new(r#"(?mix)
+        static ref RL: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 \u{202E}
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &RL, file, text, flag)?)
 }
 
-pub fn found_shell(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_shell(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref SHELL: Regex = Regex::new(r#"(?mix)
+        static ref SHELL: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 (?:[|\s'"><&\\]|^)(?:(?:b?a|t?c|fi|[akz])?sh)(?:[|\s'"><&]|$)
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &SHELL, file, text, flag)?)
 }
 
-
-
-pub fn found_shellcode(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_shellcode(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref SHELL_CODE: Regex = Regex::new(r#"(?mix)
+        static ref SHELL_CODE: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 (?:(?:[0\\]?x|\x20)?[a-f0-9]{2}[,\x20;:\\]){100}
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &SHELL_CODE, file, text, flag)?)
 }
 
-
-
 /*
     TODO: add aliases
 */
-pub fn found_suspicious(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_suspicious(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
         static ref SUSPICIOUS: Regex = Regex::new(r#"(?mix)
             (:?.*
@@ -412,46 +434,70 @@ pub fn found_suspicious(pdt: &str, file: &str, text: &str, flag: &str) -> Result
     Ok(report_finds(pdt, &SUSPICIOUS, file, text, flag)?)
 }
 
-
-pub fn found_unc(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_unc(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref UNC: Regex = Regex::new(r#"(?mix)
+        static ref UNC: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 \\\\[a-z0-9_.$-]+\\[a-z0-9_.$-]+
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &UNC, file, text, flag)?)
 }
 
-
-pub fn found_url(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_url(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref URL: Regex = Regex::new(r#"(?mix)
+        static ref URL: Regex = Regex::new(
+            r#"(?mix)
             (:?.*
                 (?:https?|ftp|smb|cifs)://
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &URL, file, text, flag)?)
 }
 
-pub fn found_webshell(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool>
-{
+pub fn found_webshell(pdt: &str, file: &str, text: &str, flag: &str) -> Result<bool> {
     lazy_static! {
-        static ref WEBSHELL: Regex = Regex::new(r#"(?mix)
+        static ref WEBSHELL: Regex = Regex::new(
+            r#"(?mix)
             (?:.*
-                # PHP / Perl / JSP possible web shells often used functions
-                (?:[|\s'"><&\\;()\[\]]|^)(?:(?:eval|passthru|base64_decode|system|p(?:roc_)?open|
+                # PHP command execution / code evaluation functions
+                (?:[|\s'">&\\;()\[\]]|^)(?:(?:eval|passthru|base64_decode|system|p(?:roc_)?open|
                 preg_replace|show_source|parse_ini_file|assert|gzdeflate|
-                str_rot13|StreamConnector|start|parse_ini_file|show_source)\(|exec(?:\(|\.)|
+                str_rot13|StreamConnector|start|create_function)\(|exec(?:\(|\.)|
 
-                # ASP possible web shells often used functions
-                creatobject|\.run\()
+                # PHP filesystem reconnaissance & manipulation functions
+                scandir\(|file_get_contents\(|chroot\(|disk_free_space\(
+
+                # PHP raw stream / file I/O functions (fpassthru, fsockopen)
+                fopen\(|fclose\(|fgets\(|fread\(|fwrite\(|fpassthru\(
+
+                # PHP network connections & exfiltration (reverse shells, HTTP callbacks)
+                stream_context_create\(|fsockopen\(|pfsockopen\(
+                curl_init\(|curl_exec\(
+
+                # PHP directory traversal & server manipulation
+                chdir\(|apache_setenv\(
+
+                # PHP file operations / persistence
+                move_uploaded_file\(|copy\(|rename\(|unlink\(|rmdir\(|mkdir\(
+                symlink\(|link\(|readlink\(
+
+                # Python webshell command execution
+                os\.system\(|subprocess\.call\(|subprocess\.exec\(|subprocess\.popen\(
+
+                # ASP Classic object creation & script control
+                creatobject|\.run\(|\.CreateObject|\.Execute|\.Eval|\.Transfer|\.ClearError
             .*)
-        "#).expect("Invalid Regex");
+        "#
+        )
+        .expect("Invalid Regex");
     }
     Ok(report_finds(pdt, &WEBSHELL, file, text, flag)?)
 }

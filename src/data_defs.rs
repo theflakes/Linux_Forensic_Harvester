@@ -114,6 +114,21 @@ Options:
                               - Memory, CPU, PIDs limits and usage
                             - data_type: Cgroup (process-level)
                             - data_type: CgroupMeta (cgroup metadata)
+  Tmpfiles harvesting:
+    -t, --tmpfiles          Harvest systemd tmpfiles rules
+                            - Parses .conf files from:
+                              - /usr/lib/tmpfiles.d/  (vendor defaults)
+                              - /etc/tmpfiles.d/     (admin overrides)
+                              - /run/tmpfiles.d/     (runtime rules)
+                            - data_type: TmpfileRule
+                            - Forensic tags:
+                              - admin_override  — rule in /etc/tmpfiles.d/
+                              - runtime_rule    — rule in /run/tmpfiles.d/
+                              - force_action    — F/D/W actions (can overwrite)
+                              - creates_path    — creates files/dirs/symlinks
+                              - removes_path    — deletes files/dirs
+                              - root_owned      — owned by root
+                              - world_writable  — permissions allow world write
 
 Note:
   Must be run as root.
@@ -144,6 +159,7 @@ pub struct Args {
     pub flag_hex: String,
     pub flag_suidsgid: bool,
     pub flag_cgroup: bool,
+    pub flag_tmpfiles: bool,
 
     // time window
     pub flag_start: String,
@@ -1167,6 +1183,65 @@ impl TxCgroup {
             user_session_id,
             kubernetes_pod_id,
             kubernetes_class,
+            tags,
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
+/// Tmpfiles rule log — parsed from systemd tmpfiles .conf files.
+/// parent_data_type = "Tmpfiles"
+/// Fields: action, path, mode, ownership, lifetime, source directory.
+#[derive(Serialize)]
+pub struct TxTmpfiles {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    pub data_type: String,
+    pub timestamp: String,
+    pub action: String,
+    pub path: String,
+    pub mode: String,
+    pub owner: String,
+    pub group: String,
+    pub lifetime: String,
+    pub source: String,
+    pub comment: String,
+    pub tags: Vec<String>,
+}
+impl TxTmpfiles {
+    pub fn new(
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        action: String,
+        path: String,
+        mode: String,
+        owner: String,
+        group: String,
+        lifetime: String,
+        source: String,
+        comment: String,
+        tags: Vec<String>,
+    ) -> TxTmpfiles {
+        TxTmpfiles {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            action,
+            path,
+            mode,
+            owner,
+            group,
+            lifetime,
+            source,
+            comment,
             tags,
         }
     }

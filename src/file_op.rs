@@ -244,10 +244,10 @@ pub fn get_link_info(
         path = resolve_link(link_path)?;
         let lp = path.to_string_lossy().to_string();
         if lp.contains("(deleted)") {
-            tags.insert("LinkTargetDeleted".to_string());
+            tags.insert("link_target_deleted".to_string());
             let p = link_path.to_string_lossy().to_string();
             if p.starts_with("/proc/") && p.ends_with("/exe") {
-                tags.insert("ProcBinDeleted".to_string());
+                tags.insert("proc_bin_deleted".to_string());
             }
         }
         parent_data_type = "ShellLink".to_string();

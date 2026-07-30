@@ -195,7 +195,7 @@ pub fn get_rootkit_hidden_file_data(
         return Ok(tags);
     }
     let diff_string = format!("{:?}", diff);
-    tags.insert("DataHidden".to_string());
+    tags.insert("data_hidden".to_string());
     let bytes = u8_to_hex_string(&diff_bytes)?;
     TxHiddenData::new(
         "File".to_string(),

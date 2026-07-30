@@ -25,6 +25,7 @@ mod hunt_rootkits;
 mod hunts;
 mod mutate;
 mod time;
+mod tmpfiles_harvest;
 
 use cgroup_harvest::{harvest_cgroup_state, harvest_cgroups};
 use hunt_rootkits::{get_rootkit_hidden_file_data, rootkit_hunt};
@@ -41,6 +42,7 @@ use std::{
     path::{Path, PathBuf},
     process::exit,
 };
+use tmpfiles_harvest::harvest_tmpfiles;
 use walkdir::WalkDir;
 use {data_defs::*, file_op::*, mutate::*, time::*};
 
@@ -116,50 +118,50 @@ const WATCH_FILE_TYPES: [&str; 25] = [
 
 fn run_hunts(pdt: &str, file: &str, text: &str) -> std::io::Result<HashSet<String>> {
     let mut tags: HashSet<String> = HashSet::new();
-    if found_base64(pdt, file, text, &"Base64")? {
-        tags.insert("Base64".to_string());
+    if found_base64(pdt, file, text, &"base64")? {
+        tags.insert("base64".to_string());
     }
-    if found_email(pdt, file, text, &"Email")? {
-        tags.insert("Email".to_string());
+    if found_email(pdt, file, text, &"email")? {
+        tags.insert("email".to_string());
     }
-    if found_encoding(pdt, file, text, &"Encoding")? {
-        tags.insert("Encoding".to_string());
+    if found_encoding(pdt, file, text, &"encoding")? {
+        tags.insert("encoding".to_string());
     }
     if found_hex(&text.as_bytes().to_vec(), &FIND_HEX)? {
-        tags.insert("Hex".to_string());
+        tags.insert("hex".to_string());
     }
-    if found_ipv4(pdt, file, text, &"IPv4")? {
-        tags.insert("IPv4".to_string());
+    if found_ipv4(pdt, file, text, &"ipv4")? {
+        tags.insert("ipv4".to_string());
     }
-    if found_ipv6(pdt, file, text, &"IPv6")? {
-        tags.insert("IPv6".to_string());
+    if found_ipv6(pdt, file, text, &"ipv6")? {
+        tags.insert("ipv6".to_string());
     }
-    if found_obfuscation(pdt, file, text, &"Obfuscation")? {
-        tags.insert("Obfuscation".to_string());
+    if found_obfuscation(pdt, file, text, &"obfuscation")? {
+        tags.insert("obfuscation".to_string());
     }
-    if found_regex(pdt, file, text, &"Regex")? {
-        tags.insert("Regex".to_string());
+    if found_regex(pdt, file, text, &"regex")? {
+        tags.insert("regex".to_string());
     }
-    if found_righttoleft(pdt, file, file, &"RightLeft")? {
-        tags.insert("RightLeft".to_string());
+    if found_righttoleft(pdt, file, file, &"right_left")? {
+        tags.insert("right_left".to_string());
     }
-    if found_shell(pdt, file, text, &"Shell")? {
-        tags.insert("Shell".to_string());
+    if found_shell(pdt, file, text, &"shell")? {
+        tags.insert("shell".to_string());
     }
-    if found_shellcode(pdt, file, text, &"ShellCode")? {
-        tags.insert("ShellCode".to_string());
+    if found_shellcode(pdt, file, text, &"shell_code")? {
+        tags.insert("shell_code".to_string());
     }
-    if found_suspicious(pdt, file, text, &"Suspicious")? {
-        tags.insert("Suspicious".to_string());
+    if found_suspicious(pdt, file, text, &"suspicious")? {
+        tags.insert("suspicious".to_string());
     }
-    if found_unc(pdt, file, text, &"Unc")? {
-        tags.insert("Unc".to_string());
+    if found_unc(pdt, file, text, &"unc")? {
+        tags.insert("unc".to_string());
     }
-    if found_url(pdt, file, text, &"Url")? {
-        tags.insert("Url".to_string());
+    if found_url(pdt, file, text, &"url")? {
+        tags.insert("url".to_string());
     }
-    if found_webshell(pdt, file, text, &"WebShell")? {
-        tags.insert("WebShell".to_string());
+    if found_webshell(pdt, file, text, &"webshell")? {
+        tags.insert("webshell".to_string());
     }
     Ok(tags)
 }
@@ -733,10 +735,10 @@ pub fn process_file(
         let (is_suid, is_sgid) = is_suid_sgid(mode);
         let tags_copy = tags.clone();
         if is_suid {
-            tags.insert("Suid".to_string());
+            tags.insert("suid".to_string());
         }
         if is_sgid {
-            tags.insert("Sgid".to_string());
+            tags.insert("sgid".to_string());
         }
         let (md5, mime_type) = get_file_content_info(&file)?;
         // certain files we want to parse explicitely
@@ -814,10 +816,12 @@ fn process_directory_files(
 }
 
 fn str_starts_with(path: &str) -> bool {
-    let does_start_with = WATCH_PATHS.iter().any(|p| path.starts_with(p)
-        || (["/dev/", "/mnt/", "/proc/", "/sys/"]
-            .iter()
-            .any(|p| path.starts_with(p))));
+    let does_start_with = WATCH_PATHS.iter().any(|p| {
+        path.starts_with(p)
+            || (["/dev/", "/mnt/", "/proc/", "/sys/"]
+                .iter()
+                .any(|p| path.starts_with(p)))
+    });
     return does_start_with;
 }
 
@@ -869,7 +873,7 @@ fn find_hidden_directory_contents(dir: &str) -> std::io::Result<()> {
     }
     let pdt = "Rootkit".to_string();
     let mut tags: HashSet<String> = HashSet::new();
-    tags.insert("DirContentsHidden".to_string());
+    tags.insert("dir_contents_hidden".to_string());
     TxDirContentCounts::new(
         pdt.to_string(),
         "DirContentsHidden".to_owned(),
@@ -897,7 +901,12 @@ fn is_root() {
 fn main() -> std::io::Result<()> {
     is_root();
 
-    if !ARGS.flag_forensics && !ARGS.flag_rootkit && !ARGS.flag_suidsgid && !ARGS.flag_cgroup {
+    if !ARGS.flag_forensics
+        && !ARGS.flag_rootkit
+        && !ARGS.flag_suidsgid
+        && !ARGS.flag_cgroup
+        && !ARGS.flag_tmpfiles
+    {
         println!("{}", USAGE);
         return Ok(());
     }
@@ -914,7 +923,7 @@ fn main() -> std::io::Result<()> {
         find_suid_sgid(&mut files_already_seen)?;
     }
 
-    if ARGS.flag_cgroup {
+    if ARGS.flag_cgroup || ARGS.flag_forensics {
         // Process-level: which cgroup each process belongs to
         for cgroup_snap in harvest_cgroups() {
             cgroup_snap.report_log();
@@ -922,6 +931,12 @@ fn main() -> std::io::Result<()> {
         // Cgroup metadata-level: resource state of each cgroup
         for cgroup_meta in harvest_cgroup_state() {
             cgroup_meta.report_log();
+        }
+    }
+
+    if ARGS.flag_tmpfiles || ARGS.flag_forensics {
+        for rule in harvest_tmpfiles() {
+            rule.report_log();
         }
     }
 

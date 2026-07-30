@@ -1,10 +1,10 @@
-extern crate chrono;            // DateTime manipulation
+extern crate chrono; // DateTime manipulation
 
 use chrono::offset::Utc;
 use chrono::DateTime;
 
 // get date into the format we need
-pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
+pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error> {
     Ok(time.format("%Y-%m-%dT%H:%M:%S.%3fZ").to_string())
 }
 
@@ -12,7 +12,7 @@ pub fn format_date(time: DateTime<Utc>) -> Result<String, std::io::Error>  {
 pub fn to_u128(num: &str) -> std::io::Result<u128> {
     let n = match num.parse::<u128>() {
         Ok(i) => i,
-        Err(_e) => 0
+        Err(_e) => 0,
     };
     Ok(n)
 }
@@ -21,7 +21,7 @@ pub fn to_u128(num: &str) -> std::io::Result<u128> {
 pub fn to_int64(num: &str) -> std::io::Result<i64> {
     let n = match num.parse::<i64>() {
         Ok(i) => i,
-        Err(_e) => 0
+        Err(_e) => 0,
     };
     Ok(n)
 }
@@ -30,7 +30,7 @@ pub fn to_int64(num: &str) -> std::io::Result<i64> {
 pub fn to_int32(num: &str) -> std::io::Result<i32> {
     let n = match num.parse::<i32>() {
         Ok(i) => i,
-        Err(_e) => 0
+        Err(_e) => 0,
     };
     Ok(n)
 }
@@ -50,7 +50,7 @@ pub fn to_int16(num: &str) -> i16 {
 pub fn to_int8(num: &str) -> std::io::Result<i8> {
     let n = match num.parse::<i8>() {
         Ok(i) => i,
-        Err(_e) => 0
+        Err(_e) => 0,
     };
     Ok(n)
 }
@@ -81,9 +81,9 @@ pub fn get_tcp_state(state: &str) -> std::io::Result<String> {
         "08" => return Ok("TCP_CLOSE_WAIT".to_string()),
         "09" => return Ok("TCP_LAST_ACK".to_string()),
         "0A" => return Ok("TCP_LISTEN".to_string()),
-        "0B" => return Ok("TCP_CLOSING".to_string()),    /* Now a valid state */
-        "0C" => return Ok("TCP_MAX_STATES".to_string()),  /* Leave at the end! */
-        _ => return Ok("UNKNOWN".to_string())
+        "0B" => return Ok("TCP_CLOSING".to_string()), /* Now a valid state */
+        "0C" => return Ok("TCP_MAX_STATES".to_string()), /* Leave at the end! */
+        _ => return Ok("UNKNOWN".to_string()),
     }
 }
 
@@ -106,14 +106,14 @@ pub fn push_file_path(path: &str, suffix: &str) -> std::io::Result<std::path::Pa
     Solution provided by H2CO3
     See: https://users.rust-lang.org/t/hex-string-to-vec-u8/51903
 */
-pub fn hex_to_bytes(
-    hex: &str
-) -> Option<Vec<u8>> {
+pub fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
     if hex.len() % 2 == 0 {
         (0..hex.len())
             .step_by(2)
-            .map(|i| hex.get(i..i + 2)
-                .and_then(|sub| u8::from_str_radix(sub, 16).ok()))
+            .map(|i| {
+                hex.get(i..i + 2)
+                    .and_then(|sub| u8::from_str_radix(sub, 16).ok())
+            })
             .collect()
     } else {
         None
