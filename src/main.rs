@@ -24,6 +24,7 @@ mod file_op;
 mod hunt_rootkits;
 mod hunts;
 mod mutate;
+mod systemd_harvest;
 mod time;
 mod tmpfiles_harvest;
 
@@ -42,6 +43,7 @@ use std::{
     path::{Path, PathBuf},
     process::exit,
 };
+use systemd_harvest::harvest_systemd_units;
 use tmpfiles_harvest::harvest_tmpfiles;
 use walkdir::WalkDir;
 use {data_defs::*, file_op::*, mutate::*, time::*};
@@ -906,6 +908,7 @@ fn main() -> std::io::Result<()> {
         && !ARGS.flag_suidsgid
         && !ARGS.flag_cgroup
         && !ARGS.flag_tmpfiles
+        && !ARGS.flag_systemd
     {
         println!("{}", USAGE);
         return Ok(());
@@ -937,6 +940,12 @@ fn main() -> std::io::Result<()> {
     if ARGS.flag_tmpfiles || ARGS.flag_forensics {
         for rule in harvest_tmpfiles() {
             rule.report_log();
+        }
+    }
+
+    if ARGS.flag_systemd || ARGS.flag_forensics {
+        for unit_rule in harvest_systemd_units() {
+            unit_rule.report_log();
         }
     }
 

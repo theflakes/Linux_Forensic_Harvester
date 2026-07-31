@@ -466,35 +466,33 @@ pub fn found_webshell(pdt: &str, file: &str, text: &str, flag: &str) -> Result<b
     lazy_static! {
         static ref WEBSHELL: Regex = Regex::new(
             r#"(?mix)
-            (?:.*
                 # PHP command execution / code evaluation functions
                 (?:[|\s'">&\\;()\[\]]|^)(?:(?:eval|passthru|base64_decode|system|p(?:roc_)?open|
                 preg_replace|show_source|parse_ini_file|assert|gzdeflate|
-                str_rot13|StreamConnector|start|create_function)\(|exec(?:\(|\.)|
+                str_rot13|StreamConnector|start|create_function)\(|exec(?:\(|\.))|
 
                 # PHP filesystem reconnaissance & manipulation functions
-                scandir\(|file_get_contents\(|chroot\(|disk_free_space\(
+                scandir\(|file_get_contents\(|chroot\(|disk_free_space\(|
 
-                # PHP raw stream / file I/O functions (fpassthru, fsockopen)
-                fopen\(|fclose\(|fgets\(|fread\(|fwrite\(|fpassthru\(
+                # PHP raw stream / file I/O functions
+                fopen\(|fclose\(|fgets\(|fread\(|fwrite\(|fpassthru\(|
 
-                # PHP network connections & exfiltration (reverse shells, HTTP callbacks)
-                stream_context_create\(|fsockopen\(|pfsockopen\(
-                curl_init\(|curl_exec\(
+                # PHP network connections & exfiltration
+                stream_context_create\(|fsockopen\(|pfsockopen\(|
+                curl_init\(|curl_exec\(|
 
                 # PHP directory traversal & server manipulation
-                chdir\(|apache_setenv\(
+                chdir\(|apache_setenv\(|
 
                 # PHP file operations / persistence
-                move_uploaded_file\(|copy\(|rename\(|unlink\(|rmdir\(|mkdir\(
-                symlink\(|link\(|readlink\(
+                move_uploaded_file\(|copy\(|rename\(|unlink\(|rmdir\(|mkdir\(|
+                symlink\(|link\(|readlink\(|
 
                 # Python webshell command execution
-                os\.system\(|subprocess\.call\(|subprocess\.exec\(|subprocess\.popen\(
+                os\.system\(|subprocess\.call\(|subprocess\.exec\(|subprocess\.popen\(|
 
                 # ASP Classic object creation & script control
-                creatobject|\.run\(|\.CreateObject|\.Execute|\.Eval|\.Transfer|\.ClearError
-            .*)
+                createobject|\.run\(|\.CreateObject|\.Execute|\.Eval|\.Transfer|\.ClearError
         "#
         )
         .expect("Invalid Regex");

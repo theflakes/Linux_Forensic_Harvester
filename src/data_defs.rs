@@ -129,6 +129,25 @@ Options:
                               - removes_path    — deletes files/dirs
                               - root_owned      — owned by root
                               - world_writable  — permissions allow world write
+  Systemd unit harvesting:
+    -s, --systemd           Harvest systemd service/unit files
+                            - Parses .service/.timer/.socket/.target etc. from:
+                              - /usr/lib/systemd/system/  (vendor defaults)
+                              - /lib/systemd/system/      (vendor packages)
+                              - /etc/systemd/system/      (admin overrides)
+                              - /run/systemd/system/      (runtime-generated)
+                            - data_type: ServiceRule
+                            - Forensic tags:
+                              - admin_override    — unit in /etc/systemd/system/
+                              - runtime_rule      — unit in /run/systemd/system/
+                              - vendor_default    — unit from package manager
+                              - enabled           — symlinked into a .wants/ dir
+                              - shell_invocation  — Exec* uses /bin/sh or /bin/bash
+                              - runs_as_root      — User=root or unset (default root)
+                              - auto_restart      — Restart=always or on-failure
+                              - network_exposed   — Listen*= directives present
+                              - boot_service      — WantedBy multi-user/graphical.target
+                              - path_condition    — ConditionPathExists/ExecCondition used
 
 Note:
   Must be run as root.
@@ -160,6 +179,7 @@ pub struct Args {
     pub flag_suidsgid: bool,
     pub flag_cgroup: bool,
     pub flag_tmpfiles: bool,
+    pub flag_systemd: bool,
 
     // time window
     pub flag_start: String,
@@ -1362,6 +1382,62 @@ impl TxCgroupMeta {
             cgroup_progeny,
             cgroup_freeze,
             cgroup_pids,
+            tags,
+        }
+    }
+
+    // convert struct to json and report it out
+    pub fn report_log(&self) {
+        self.write_log()
+    }
+}
+
+/// Systemd unit directive log — parsed from systemd .service, .timer, .socket etc. files.
+/// parent_data_type = "Systemd"
+/// Fields: section, key-value pair from the unit file, unit name, source directory.
+#[derive(Serialize)]
+pub struct TxSystemdUnit {
+    device_name: String,
+    src_ip: String,
+    pub parent_data_type: String,
+    pub data_type: String,
+    pub timestamp: String,
+    pub section: String,
+    pub key: String,
+    pub value: String,
+    pub unit_path: String,
+    pub unit_name: String,
+    pub source_dir: String,
+    pub source: String,
+    pub tags: Vec<String>,
+}
+impl TxSystemdUnit {
+    pub fn new(
+        parent_data_type: String,
+        data_type: String,
+        timestamp: String,
+        section: String,
+        key: String,
+        value: String,
+        unit_path: String,
+        unit_name: String,
+        source_dir: String,
+        source: String,
+        tags: Vec<String>,
+    ) -> TxSystemdUnit {
+        TxSystemdUnit {
+            device_name: DEVICE_NAME.to_string(),
+            src_ip: DEVICE_IP.to_string(),
+            parent_data_type,
+            data_type,
+            timestamp,
+            section,
+            key,
+            value,
+            unit_path,
+            unit_name,
+            source_dir,
+            source,
             tags,
         }
     }
