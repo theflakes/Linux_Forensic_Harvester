@@ -103,6 +103,40 @@ Options:
                               - Memory, CPU, PIDs limits and usage
                             - data_type: Cgroup (process-level)
                             - data_type: CgroupMeta (cgroup metadata)
+  Tmpfiles harvesting:
+    -t, --tmpfiles          Harvest systemd tmpfiles rules
+                            - Parses .conf files from:
+                              - /usr/lib/tmpfiles.d/  (vendor defaults)
+                              - /etc/tmpfiles.d/     (admin overrides)
+                              - /run/tmpfiles.d/     (runtime rules)
+                            - data_type: TmpfileRule
+                            - Forensic tags:
+                              - admin_override  — rule in /etc/tmpfiles.d/
+                              - runtime_rule    — rule in /run/tmpfiles.d/
+                              - force_action    — F/D/W actions (can overwrite)
+                              - creates_path    — creates files/dirs/symlinks
+                              - removes_path    — deletes files/dirs
+                              - root_owned      — owned by root
+                              - world_writable  — permissions allow world write
+  Systemd unit harvesting:
+    -s, --systemd           Harvest systemd service/unit files
+                            - Parses .service/.timer/.socket/.target etc. from:
+                              - /usr/lib/systemd/system/  (vendor defaults)
+                              - /lib/systemd/system/      (vendor packages)
+                              - /etc/systemd/system/      (admin overrides)
+                              - /run/systemd/system/      (runtime-generated)
+                            - data_type: ServiceRule
+                            - Forensic tags:
+                              - admin_override    — unit in /etc/systemd/system/
+                              - runtime_rule      — unit in /run/systemd/system/
+                              - vendor_default    — unit from package manager
+                              - enabled           — symlinked into a .wants/ dir
+                              - shell_invocation  — Exec* uses /bin/sh or /bin/bash
+                              - runs_as_root      — User=root or unset (default root)
+                              - auto_restart      — Restart=always or on-failure
+                              - network_exposed   — Listen*= directives present
+                              - boot_service      — WantedBy multi-user/graphical.target
+                              - path_condition    — ConditionPathExists/ExecCondition used
 
 Note:
   Must be run as root.
@@ -118,8 +152,6 @@ Note:
   Files larger than 256MB will not be hashed.
 
   Files larger than '--max' will not be inspected for interesting strings.
-
-Must be run as root
 ```
 
 ## To compile
